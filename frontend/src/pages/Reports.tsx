@@ -1,14 +1,28 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { applications, applicants, jobVacancies, getApplicantName, getVacancyTitle, getStatusColor } from "@/lib/mock-data";
+import { useQuery } from "@tanstack/react-query";
+import { fetchApplicants, fetchApplications, fetchJobs } from "@/lib/api";
+import { getStatusColor } from "@/lib/status";
 import { FileText, Printer, Download } from "lucide-react";
 
 type ReportType = "per-position" | "hired" | "rejected" | "summary";
 
 export default function Reports() {
   const [reportType, setReportType] = useState<ReportType>("per-position");
+  const { data: applications = [] } = useQuery({
+    queryKey: ["applications"],
+    queryFn: fetchApplications
+  });
+  const { data: applicants = [] } = useQuery({
+    queryKey: ["applicants"],
+    queryFn: fetchApplicants
+  });
+  const { data: jobVacancies = [] } = useQuery({
+    queryKey: ["jobs"],
+    queryFn: fetchJobs
+  });
 
   const hired = applications.filter((a) => a.status === "Hired");
   const rejected = applications.filter((a) => a.status === "Rejected");
@@ -18,10 +32,26 @@ export default function Reports() {
     apps: applications.filter((a) => a.vacancyId === v.id),
   }));
 
-  const monthlySummary = [
-    { month: "January 2026", applications: 4, hired: 1, rejected: 0 },
-    { month: "February 2026", applications: 4, hired: 1, rejected: 1 },
-  ];
+  const monthlySummary = useMemo(() => {
+    const summaryMap = new Map<string, { month: string; applications: number; hired: number; rejected: number }>();
+    applications.forEach((app) => {
+      const date = new Date(app.dateApplied);
+      if (Number.isNaN(date.getTime())) return;
+      const month = date.toLocaleString("en-US", { month: "long", year: "numeric" });
+      const entry = summaryMap.get(month) ?? { month, applications: 0, hired: 0, rejected: 0 };
+      entry.applications += 1;
+      if (app.status === "Hired") entry.hired += 1;
+      if (app.status === "Rejected") entry.rejected += 1;
+      summaryMap.set(month, entry);
+    });
+    return Array.from(summaryMap.values());
+  }, [applications]);
+
+  const getApplicantName = (id: string) =>
+    applicants.find((a) => a.id === id)?.fullName ?? "Unknown";
+
+  const getVacancyTitle = (id: string) =>
+    jobVacancies.find((v) => v.id === id)?.positionTitle ?? "Unknown";
 
   return (
     <div className="space-y-6">

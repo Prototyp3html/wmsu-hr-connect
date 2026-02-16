@@ -17,9 +17,9 @@ export default function Login() {
 
   if (user) return <Navigate to="/dashboard" replace />;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (login(email, password)) {
+    if (await login(email, password)) {
       toast({ title: "Welcome back!", description: "You have logged in successfully." });
     } else {
       toast({ title: "Login failed", description: "Invalid email or password.", variant: "destructive" });
@@ -88,8 +88,8 @@ export default function Login() {
           <CardContent className="pt-4 pb-4">
             <p className="text-xs font-semibold text-accent-foreground mb-2">Test Accounts</p>
             <div className="space-y-1 text-xs text-muted-foreground">
-              <p><strong>Admin:</strong> admin@wmsu.edu.ph / any password</p>
-              <p><strong>Staff:</strong> hrstaff@wmsu.edu.ph / any password</p>
+              <p><strong>Admin:</strong> admin@wmsu.edu.ph / password123</p>
+              <p><strong>Staff:</strong> hrstaff@wmsu.edu.ph / password123</p>
             </div>
           </CardContent>
         </Card>

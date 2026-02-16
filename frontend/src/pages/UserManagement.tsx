@@ -4,11 +4,42 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { users } from "@/lib/mock-data";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createUser, fetchUsers } from "@/lib/api";
 import { Plus, Shield, ShieldCheck, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function UserManagement() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [showCreate, setShowCreate] = useState(false);
+  const [formState, setFormState] = useState({
+    name: "",
+    email: "",
+    password: "",
+    role: "staff"
+  });
+
+  const { data: users = [] } = useQuery({
+    queryKey: ["users"],
+    queryFn: fetchUsers
+  });
+
+  const createMutation = useMutation({
+    mutationFn: createUser,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      setShowCreate(false);
+      setFormState({ name: "", email: "", password: "", role: "staff" });
+      toast({ title: "User created", description: "The user account was added." });
+    },
+    onError: (error) => {
+      toast({ title: "Create failed", description: (error as Error).message, variant: "destructive" });
+    }
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -16,28 +47,50 @@ export default function UserManagement() {
           <h1 className="text-2xl font-bold font-display text-foreground">User Management</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage system users and access roles</p>
         </div>
-        <Dialog>
+        <Dialog open={showCreate} onOpenChange={setShowCreate}>
           <DialogTrigger asChild>
             <Button><Plus className="w-4 h-4 mr-2" /> Add User</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Add New User</DialogTitle></DialogHeader>
-            <form className="space-y-4">
+            <form className="space-y-4" onSubmit={(e) => {
+              e.preventDefault();
+              createMutation.mutate({
+                name: formState.name,
+                email: formState.email,
+                password: formState.password,
+                role: formState.role
+              });
+            }}>
               <div className="space-y-2">
                 <Label>Full Name</Label>
-                <Input placeholder="e.g., Maria Santos" />
+                <Input
+                  placeholder="e.g., Maria Santos"
+                  value={formState.name}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, name: e.target.value }))}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Email Address</Label>
-                <Input type="email" placeholder="user@wmsu.edu.ph" />
+                <Input
+                  type="email"
+                  placeholder="user@wmsu.edu.ph"
+                  value={formState.email}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, email: e.target.value }))}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Password</Label>
-                <Input type="password" placeholder="Set initial password" />
+                <Input
+                  type="password"
+                  placeholder="Set initial password"
+                  value={formState.password}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, password: e.target.value }))}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Role</Label>
-                <Select>
+                <Select value={formState.role} onValueChange={(value) => setFormState((prev) => ({ ...prev, role: value }))}>
                   <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="admin">HR Admin</SelectItem>
@@ -45,7 +98,7 @@ export default function UserManagement() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button className="w-full">Create User</Button>
+              <Button className="w-full" type="submit" disabled={createMutation.isPending}>Create User</Button>
             </form>
           </DialogContent>
         </Dialog>

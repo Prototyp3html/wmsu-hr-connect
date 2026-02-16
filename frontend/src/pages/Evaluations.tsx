@@ -5,29 +5,71 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  evaluations,
-  applications,
-  applicants,
-  jobVacancies,
-  getApplicantName,
-  getVacancyTitle,
-} from "@/lib/mock-data";
-import { Award, Pencil, Trophy } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createEvaluation, fetchApplicants, fetchApplications, fetchEvaluations, fetchJobs } from "@/lib/api";
+import { Award, Trophy } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Evaluations() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [formState, setFormState] = useState({
+    applicationId: "",
+    examScore: "",
+    interviewScore: "",
+    remarks: ""
+  });
+
+  const { data: evaluations = [] } = useQuery({
+    queryKey: ["evaluations"],
+    queryFn: fetchEvaluations
+  });
+  const { data: applications = [] } = useQuery({
+    queryKey: ["applications"],
+    queryFn: fetchApplications
+  });
+  const { data: applicants = [] } = useQuery({
+    queryKey: ["applicants"],
+    queryFn: fetchApplicants
+  });
+  const { data: jobVacancies = [] } = useQuery({
+    queryKey: ["jobs"],
+    queryFn: fetchJobs
+  });
+
+  const createMutation = useMutation({
+    mutationFn: createEvaluation,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["evaluations"] });
+      setFormState({ applicationId: "", examScore: "", interviewScore: "", remarks: "" });
+      toast({ title: "Evaluation saved", description: "The evaluation was recorded." });
+    },
+    onError: (error) => {
+      toast({ title: "Save failed", description: (error as Error).message, variant: "destructive" });
+    }
+  });
+
+  const getApplicantName = (id: string) =>
+    applicants.find((a) => a.id === id)?.fullName ?? "Unknown";
+
+  const getVacancyTitle = (id: string) =>
+    jobVacancies.find((v) => v.id === id)?.positionTitle ?? "Unknown";
+
   // Group evaluations by vacancy for ranking
-  const vacancyGroups = jobVacancies.map((v) => {
-    const apps = applications.filter((a) => a.vacancyId === v.id);
-    const evals = apps
-      .map((app) => {
-        const ev = evaluations.find((e) => e.applicationId === app.id);
-        return ev ? { ...ev, applicantName: getApplicantName(app.applicantId) } : null;
-      })
-      .filter(Boolean)
-      .sort((a, b) => (b?.totalScore ?? 0) - (a?.totalScore ?? 0));
-    return { vacancy: v, evaluations: evals };
-  }).filter((g) => g.evaluations.length > 0);
+  const vacancyGroups = useMemo(() => {
+    return jobVacancies.map((v) => {
+      const apps = applications.filter((a) => a.vacancyId === v.id);
+      const evals = apps
+        .map((app) => {
+          const ev = evaluations.find((e) => e.applicationId === app.id);
+          return ev ? { ...ev, applicantName: getApplicantName(app.applicantId) } : null;
+        })
+        .filter(Boolean)
+        .sort((a, b) => (b?.totalScore ?? 0) - (a?.totalScore ?? 0));
+      return { vacancy: v, evaluations: evals };
+    }).filter((g) => g.evaluations.length > 0);
+  }, [applications, evaluations, jobVacancies, applicants]);
 
   return (
     <div className="space-y-6">
@@ -42,10 +84,18 @@ export default function Evaluations() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Add Evaluation</DialogTitle></DialogHeader>
-            <form className="space-y-4">
+            <form className="space-y-4" onSubmit={(e) => {
+              e.preventDefault();
+              createMutation.mutate({
+                applicationId: formState.applicationId,
+                examScore: Number(formState.examScore),
+                interviewScore: Number(formState.interviewScore),
+                remarks: formState.remarks
+              });
+            }}>
               <div className="space-y-2">
                 <Label>Application</Label>
-                <Select>
+                <Select value={formState.applicationId} onValueChange={(value) => setFormState((prev) => ({ ...prev, applicationId: value }))}>
                   <SelectTrigger><SelectValue placeholder="Select application" /></SelectTrigger>
                   <SelectContent>
                     {applications.map((app) => (
@@ -59,18 +109,36 @@ export default function Evaluations() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Exam Score</Label>
-                  <Input type="number" min={0} max={100} placeholder="0-100" />
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      placeholder="0-100"
+                      value={formState.examScore}
+                      onChange={(e) => setFormState((prev) => ({ ...prev, examScore: e.target.value }))}
+                    />
                 </div>
                 <div className="space-y-2">
                   <Label>Interview Score</Label>
-                  <Input type="number" min={0} max={100} placeholder="0-100" />
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      placeholder="0-100"
+                      value={formState.interviewScore}
+                      onChange={(e) => setFormState((prev) => ({ ...prev, interviewScore: e.target.value }))}
+                    />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label>Remarks</Label>
-                <Textarea placeholder="Evaluation remarks..." />
+                <Textarea
+                  placeholder="Evaluation remarks..."
+                  value={formState.remarks}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, remarks: e.target.value }))}
+                />
               </div>
-              <Button className="w-full">Save Evaluation</Button>
+              <Button className="w-full" type="submit" disabled={createMutation.isPending}>Save Evaluation</Button>
             </form>
           </DialogContent>
         </Dialog>

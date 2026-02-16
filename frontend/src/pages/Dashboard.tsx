@@ -1,44 +1,10 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
-import { applications, jobVacancies, applicants, allStatuses, getStatusColor } from "@/lib/mock-data";
+import { useQuery } from "@tanstack/react-query";
+import { fetchApplicants, fetchApplications, fetchJobs, fetchReportsSummary } from "@/lib/api";
+import { allStatuses, getStatusColor } from "@/lib/status";
 import { Briefcase, Users, ClipboardList, UserCheck } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
-
-const statCards = [
-  {
-    label: "Total Job Vacancies",
-    value: jobVacancies.length,
-    icon: Briefcase,
-    color: "text-info",
-    bg: "bg-info/10",
-  },
-  {
-    label: "Total Applicants",
-    value: applicants.length,
-    icon: Users,
-    color: "text-primary",
-    bg: "bg-primary/10",
-  },
-  {
-    label: "Under Screening",
-    value: applications.filter((a) => a.status === "Under Initial Screening").length,
-    icon: ClipboardList,
-    color: "text-warning",
-    bg: "bg-warning/10",
-  },
-  {
-    label: "Hired Applicants",
-    value: applications.filter((a) => a.status === "Hired").length,
-    icon: UserCheck,
-    color: "text-success",
-    bg: "bg-success/10",
-  },
-];
-
-const statusData = allStatuses.map((status) => ({
-  name: status.replace("Under ", "").replace("For ", ""),
-  count: applications.filter((a) => a.status === status).length,
-}));
 
 const pieColors = [
   "hsl(217, 91%, 60%)",
@@ -51,14 +17,66 @@ const pieColors = [
   "hsl(0, 84%, 60%)",
 ];
 
-const vacancyStatusData = [
-  { name: "Open", value: jobVacancies.filter((v) => v.status === "Open").length },
-  { name: "Closed", value: jobVacancies.filter((v) => v.status === "Closed").length },
-  { name: "Filled", value: jobVacancies.filter((v) => v.status === "Filled").length },
-];
-
 export default function Dashboard() {
   const { user } = useAuth();
+  const { data: applicants = [] } = useQuery({
+    queryKey: ["applicants"],
+    queryFn: fetchApplicants
+  });
+  const { data: jobVacancies = [] } = useQuery({
+    queryKey: ["jobs"],
+    queryFn: fetchJobs
+  });
+  const { data: applications = [] } = useQuery({
+    queryKey: ["applications"],
+    queryFn: fetchApplications
+  });
+  const { data: summary } = useQuery({
+    queryKey: ["reports-summary"],
+    queryFn: fetchReportsSummary
+  });
+
+  const statCards = [
+    {
+      label: "Total Job Vacancies",
+      value: summary?.totalJobs ?? jobVacancies.length,
+      icon: Briefcase,
+      color: "text-info",
+      bg: "bg-info/10",
+    },
+    {
+      label: "Total Applicants",
+      value: summary?.totalApplicants ?? applicants.length,
+      icon: Users,
+      color: "text-primary",
+      bg: "bg-primary/10",
+    },
+    {
+      label: "Under Screening",
+      value: applications.filter((a) => a.status === "Under Initial Screening").length,
+      icon: ClipboardList,
+      color: "text-warning",
+      bg: "bg-warning/10",
+    },
+    {
+      label: "Hired Applicants",
+      value: applications.filter((a) => a.status === "Hired").length,
+      icon: UserCheck,
+      color: "text-success",
+      bg: "bg-success/10",
+    },
+  ];
+
+  const statusData = allStatuses.map((status) => ({
+    name: status.replace("Under ", "").replace("For ", ""),
+    count: applications.filter((a) => a.status === status).length,
+  }));
+
+  const vacancyStatusData = [
+    { name: "Open", value: jobVacancies.filter((v) => v.status === "Open").length },
+    { name: "Closed", value: jobVacancies.filter((v) => v.status === "Closed").length },
+    { name: "Filled", value: jobVacancies.filter((v) => v.status === "Filled").length },
+  ];
 
   return (
     <div className="space-y-6">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,25 +6,75 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { jobVacancies, departments, getDepartmentName, getVacancyStatusColor, type JobVacancy } from "@/lib/mock-data";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createJob, fetchDepartments, fetchJobs } from "@/lib/api";
+import { getVacancyStatusColor } from "@/lib/status";
+import type { JobVacancy } from "@/lib/types";
 import { Plus, Search, Pencil, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 export default function JobVacancies() {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [filterDept, setFilterDept] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [selectedVacancy, setSelectedVacancy] = useState<JobVacancy | null>(null);
   const [showCreate, setShowCreate] = useState(false);
-
-  const filtered = jobVacancies.filter((v) => {
-    const matchSearch = v.positionTitle.toLowerCase().includes(search.toLowerCase());
-    const matchDept = filterDept === "all" || v.departmentId === filterDept;
-    const matchStatus = filterStatus === "all" || v.status === filterStatus;
-    return matchSearch && matchDept && matchStatus;
+  const [formState, setFormState] = useState({
+    positionTitle: "",
+    departmentId: "",
+    salaryGrade: "",
+    qualifications: "",
+    postingDate: "",
+    closingDate: "",
+    status: "Open"
   });
+
+  const { data: jobVacancies = [] } = useQuery({
+    queryKey: ["jobs"],
+    queryFn: fetchJobs
+  });
+
+  const { data: departments = [] } = useQuery({
+    queryKey: ["departments"],
+    queryFn: fetchDepartments
+  });
+
+  const createMutation = useMutation({
+    mutationFn: createJob,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      setShowCreate(false);
+      setFormState({
+        positionTitle: "",
+        departmentId: "",
+        salaryGrade: "",
+        qualifications: "",
+        postingDate: "",
+        closingDate: "",
+        status: "Open"
+      });
+      toast({ title: "Vacancy created", description: "The job vacancy was added." });
+    },
+    onError: (error) => {
+      toast({ title: "Create failed", description: (error as Error).message, variant: "destructive" });
+    }
+  });
+
+  const getDepartmentName = (id: string) =>
+    departments.find((d) => d.id === id)?.name ?? "Unknown";
+
+  const filtered = useMemo(() => {
+    return jobVacancies.filter((v) => {
+      const matchSearch = v.positionTitle.toLowerCase().includes(search.toLowerCase());
+      const matchDept = filterDept === "all" || v.departmentId === filterDept;
+      const matchStatus = filterStatus === "all" || v.status === filterStatus;
+      return matchSearch && matchDept && matchStatus;
+    });
+  }, [jobVacancies, search, filterDept, filterStatus]);
 
   return (
     <div className="space-y-6">
@@ -40,14 +90,29 @@ export default function JobVacancies() {
             </DialogTrigger>
             <DialogContent className="max-w-lg">
               <DialogHeader><DialogTitle>Create Job Vacancy</DialogTitle></DialogHeader>
-              <form className="space-y-4">
+              <form className="space-y-4" onSubmit={(e) => {
+                e.preventDefault();
+                createMutation.mutate({
+                  positionTitle: formState.positionTitle,
+                  departmentId: formState.departmentId,
+                  salaryGrade: Number(formState.salaryGrade),
+                  qualifications: formState.qualifications,
+                  postingDate: formState.postingDate,
+                  closingDate: formState.closingDate,
+                  status: formState.status as JobVacancy["status"]
+                });
+              }}>
                 <div className="space-y-2">
                   <Label>Position Title</Label>
-                  <Input placeholder="e.g., Instructor I" />
+                  <Input
+                    placeholder="e.g., Instructor I"
+                    value={formState.positionTitle}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, positionTitle: e.target.value }))}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Department</Label>
-                  <Select>
+                  <Select value={formState.departmentId} onValueChange={(value) => setFormState((prev) => ({ ...prev, departmentId: value }))}>
                     <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
                     <SelectContent>
                       {departments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
@@ -57,15 +122,21 @@ export default function JobVacancies() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Salary Grade</Label>
-                    <Input type="number" placeholder="e.g., 12" />
+                    <Input
+                      type="number"
+                      placeholder="e.g., 12"
+                      value={formState.salaryGrade}
+                      onChange={(e) => setFormState((prev) => ({ ...prev, salaryGrade: e.target.value }))}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Status</Label>
-                    <Select defaultValue="Open">
+                    <Select value={formState.status} onValueChange={(value) => setFormState((prev) => ({ ...prev, status: value }))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Open">Open</SelectItem>
                         <SelectItem value="Closed">Closed</SelectItem>
+                        <SelectItem value="Filled">Filled</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -73,20 +144,32 @@ export default function JobVacancies() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Posting Date</Label>
-                    <Input type="date" />
+                    <Input
+                      type="date"
+                      value={formState.postingDate}
+                      onChange={(e) => setFormState((prev) => ({ ...prev, postingDate: e.target.value }))}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Closing Date</Label>
-                    <Input type="date" />
+                    <Input
+                      type="date"
+                      value={formState.closingDate}
+                      onChange={(e) => setFormState((prev) => ({ ...prev, closingDate: e.target.value }))}
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Qualification Requirements</Label>
-                  <Textarea placeholder="Enter required qualifications..." />
+                  <Textarea
+                    placeholder="Enter required qualifications..."
+                    value={formState.qualifications}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, qualifications: e.target.value }))}
+                  />
                 </div>
                 <div className="flex justify-end gap-3">
                   <Button variant="outline" type="button" onClick={() => setShowCreate(false)}>Cancel</Button>
-                  <Button type="button" onClick={() => setShowCreate(false)}>Create Vacancy</Button>
+                  <Button type="submit" disabled={createMutation.isPending}>Create Vacancy</Button>
                 </div>
               </form>
             </DialogContent>
@@ -143,7 +226,7 @@ export default function JobVacancies() {
                 <div className="flex gap-2">
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button variant="outline" size="sm" onClick={() => setSelectedVacancy(vacancy)}>
+                      <Button variant="outline" size="sm">
                         <Eye className="w-4 h-4 mr-1" /> View
                       </Button>
                     </DialogTrigger>
