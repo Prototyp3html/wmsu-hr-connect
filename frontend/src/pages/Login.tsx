@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
-import { GraduationCap, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,7 +32,7 @@ export default function Login() {
         {/* Header */}
         <div className="text-center space-y-3">
           <div className="mx-auto w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg">
-            <GraduationCap className="w-8 h-8 text-primary-foreground" />
+            <img src="/wmsu-seal.png" alt="WMSU seal" className="w-10 h-10" />
           </div>
           <div>
             <h1 className="text-2xl font-bold font-display text-foreground">WMSU HRMS</h1>

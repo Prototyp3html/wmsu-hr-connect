@@ -9,7 +9,6 @@ import {
   FileBarChart,
   Settings,
   LogOut,
-  GraduationCap,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -40,8 +39,8 @@ export default function Sidebar() {
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-5 border-b border-sidebar-border">
-        <div className="w-9 h-9 rounded-lg bg-sidebar-primary flex items-center justify-center flex-shrink-0">
-          <GraduationCap className="w-5 h-5 text-sidebar-primary-foreground" />
+        <div className="flex items-center justify-center flex-shrink-0">
+          <img src="/wmsu-seal.png" alt="WMSU seal" className="w-9 h-9" />
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
