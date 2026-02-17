@@ -8,7 +8,7 @@ interface AuthContextType {
   logout: () => void;
 }
 
-const AuthContext = createContext<AuthContextType>({ user: null, login: () => false, logout: () => {} });
+const AuthContext = createContext<AuthContextType>({ user: null, login: async () => false, logout: () => {} });
 
 export const useAuth = () => useContext(AuthContext);
 
