@@ -8,11 +8,12 @@ import {
   Award,
   FileBarChart,
   Settings,
+  Shield,
   LogOut,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -23,23 +24,43 @@ const navItems = [
   { to: "/evaluations", label: "Evaluations", icon: Award, roles: ["admin", "staff"] },
   { to: "/reports", label: "Reports", icon: FileBarChart, roles: ["admin", "staff"] },
   { to: "/users", label: "User Management", icon: Settings, roles: ["admin"] },
+  { to: "/audit-logs", label: "Audit Logs", icon: Shield, roles: ["admin"] },
 ];
 
-export default function Sidebar() {
+type SidebarProps = {
+  className?: string;
+  collapsible?: boolean;
+  defaultCollapsed?: boolean;
+  onNavigate?: () => void;
+};
+
+export default function Sidebar({
+  className,
+  collapsible = true,
+  defaultCollapsed = false,
+  onNavigate
+}: SidebarProps) {
   const { user, logout } = useAuth();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
   const location = useLocation();
+
+  useEffect(() => {
+    if (!collapsible) {
+      setCollapsed(false);
+    }
+  }, [collapsible]);
 
   return (
     <aside
       className={cn(
         "sidebar-gradient flex flex-col h-screen sticky top-0 transition-all duration-300 border-r border-sidebar-border",
-        collapsed ? "w-[68px]" : "w-64"
+        collapsed ? "w-[68px]" : "w-64",
+        className
       )}
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-5 border-b border-sidebar-border">
-        <div className="flex items-center justify-center flex-shrink-0">
+        <div className="flex items-center justify-center flex-shrink-0 bg-white/90 rounded-lg ring-1 ring-white/20">
           <img src="/wmsu-seal.png" alt="WMSU seal" className="w-9 h-9" />
         </div>
         {!collapsed && (
@@ -60,6 +81,7 @@ export default function Sidebar() {
               <NavLink
                 key={item.to}
                 to={item.to}
+                onClick={onNavigate}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
                   isActive
@@ -89,12 +111,14 @@ export default function Sidebar() {
           <LogOut className="w-4 h-4 flex-shrink-0" />
           {!collapsed && <span>Logout</span>}
         </button>
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="flex items-center justify-center w-full py-1.5 text-sidebar-muted hover:text-sidebar-accent-foreground transition-colors"
-        >
-          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-        </button>
+        {collapsible && (
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className="flex items-center justify-center w-full py-1.5 text-sidebar-muted hover:text-sidebar-accent-foreground transition-colors"
+          >
+            {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          </button>
+        )}
       </div>
     </aside>
   );

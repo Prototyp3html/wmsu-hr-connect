@@ -19,6 +19,7 @@ frontend/.env
 
 # Local database files
 backend/data/
+backend/uploads/
 
 # Editor directories and files
 .vscode/*

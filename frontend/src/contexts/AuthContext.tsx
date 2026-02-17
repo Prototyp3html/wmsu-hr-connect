@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import type { User } from "@/lib/types";
-import { fetchMe, login as apiLogin, setAuthToken, getAuthToken } from "@/lib/api";
+import { fetchMe, login as apiLogin, logout as apiLogout, setAuthToken, getAuthToken } from "@/lib/api";
 
 interface AuthContextType {
   user: User | null;
@@ -41,6 +41,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = () => {
+    apiLogout().catch(() => undefined);
     setAuthToken(null);
     setUser(null);
   };

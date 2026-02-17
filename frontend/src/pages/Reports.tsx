@@ -6,11 +6,14 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchApplicants, fetchApplications, fetchJobs } from "@/lib/api";
 import { getStatusColor } from "@/lib/status";
 import { FileText, Printer, Download } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 type ReportType = "per-position" | "hired" | "rejected" | "summary";
 
 export default function Reports() {
+  const { toast } = useToast();
   const [reportType, setReportType] = useState<ReportType>("per-position");
+  const [isExporting, setIsExporting] = useState(false);
   const { data: applications = [] } = useQuery({
     queryKey: ["applications"],
     queryFn: fetchApplications
@@ -53,20 +56,76 @@ export default function Reports() {
   const getVacancyTitle = (id: string) =>
     jobVacancies.find((v) => v.id === id)?.positionTitle ?? "Unknown";
 
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleExportPdf = async () => {
+    const element = document.getElementById("report-content");
+    if (!element) {
+      toast({ title: "Export failed", description: "Report content not found.", variant: "destructive" });
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf")
+      ]);
+
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+      const imageData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imageData, "PNG", 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imageData, "PNG", 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`wmsu-hr-report-${reportType}.pdf`);
+    } catch (error) {
+      toast({
+        title: "Export failed",
+        description: (error as Error).message,
+        variant: "destructive"
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 no-print">
         <div>
           <h1 className="text-2xl font-bold font-display text-foreground">Reports</h1>
           <p className="text-sm text-muted-foreground mt-1">Generate and export hiring reports</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm"><Printer className="w-4 h-4 mr-1" /> Print</Button>
-          <Button variant="outline" size="sm"><Download className="w-4 h-4 mr-1" /> Export PDF</Button>
+          <Button variant="outline" size="sm" onClick={handlePrint}>
+            <Printer className="w-4 h-4 mr-1" /> Print
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportPdf} disabled={isExporting}>
+            <Download className="w-4 h-4 mr-1" /> {isExporting ? "Exporting..." : "Export PDF"}
+          </Button>
         </div>
       </div>
 
-      <Card>
+      <Card className="no-print">
         <CardContent className="pt-4 pb-4">
           <div className="flex items-center gap-3">
             <FileText className="w-4 h-4 text-muted-foreground" />
@@ -90,19 +149,25 @@ export default function Reports() {
             <div className="space-y-6">
               <h3 className="font-semibold text-foreground">Applicants per Position</h3>
               {positionGroups.map(({ vacancy, apps }) => (
-                <div key={vacancy.id}>
+                <div key={vacancy.id} className="space-y-2">
                   <h4 className="text-sm font-medium text-foreground mb-2">{vacancy.positionTitle}</h4>
                   {apps.length > 0 ? (
-                    <table className="w-full text-sm mb-4">
+                    <table className="w-full text-sm mb-4 table-fixed">
                       <thead>
-                        <tr className="border-b"><th className="pb-2 text-left text-muted-foreground">Applicant</th><th className="pb-2 text-left text-muted-foreground">Date</th><th className="pb-2 text-left text-muted-foreground">Status</th></tr>
+                        <tr className="border-b">
+                          <th className="pb-2 text-left text-muted-foreground w-1/2">Applicant</th>
+                          <th className="pb-2 text-center text-muted-foreground w-1/4">Date</th>
+                          <th className="pb-2 text-center text-muted-foreground w-1/4">Status</th>
+                        </tr>
                       </thead>
                       <tbody>
                         {apps.map((app) => (
                           <tr key={app.id} className="border-b last:border-0">
-                            <td className="py-2">{getApplicantName(app.applicantId)}</td>
-                            <td className="py-2 text-muted-foreground">{app.dateApplied}</td>
-                            <td className="py-2"><span className={`status-badge ${getStatusColor(app.status)}`}>{app.status}</span></td>
+                            <td className="py-2 pr-3">{getApplicantName(app.applicantId)}</td>
+                            <td className="py-2 text-center text-muted-foreground">{app.dateApplied}</td>
+                            <td className="py-2 text-center">
+                              <span className={`status-badge ${getStatusColor(app.status)}`}>{app.status}</span>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -118,16 +183,20 @@ export default function Reports() {
           {reportType === "hired" && (
             <div>
               <h3 className="font-semibold text-foreground mb-4">Hired Applicants</h3>
-              <table className="w-full text-sm">
+              <table className="w-full text-sm table-fixed">
                 <thead>
-                  <tr className="border-b"><th className="pb-2 text-left text-muted-foreground">Applicant</th><th className="pb-2 text-left text-muted-foreground">Position</th><th className="pb-2 text-left text-muted-foreground">Date Applied</th></tr>
+                  <tr className="border-b">
+                    <th className="pb-2 text-left text-muted-foreground w-2/5">Applicant</th>
+                    <th className="pb-2 text-left text-muted-foreground w-2/5">Position</th>
+                    <th className="pb-2 text-center text-muted-foreground w-1/5">Date Applied</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {hired.map((app) => (
                     <tr key={app.id} className="border-b last:border-0">
-                      <td className="py-2 font-medium">{getApplicantName(app.applicantId)}</td>
-                      <td className="py-2 text-muted-foreground">{getVacancyTitle(app.vacancyId)}</td>
-                      <td className="py-2 text-muted-foreground">{app.dateApplied}</td>
+                      <td className="py-2 pr-3 font-medium">{getApplicantName(app.applicantId)}</td>
+                      <td className="py-2 pr-3 text-muted-foreground">{getVacancyTitle(app.vacancyId)}</td>
+                      <td className="py-2 text-center text-muted-foreground">{app.dateApplied}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -138,15 +207,19 @@ export default function Reports() {
           {reportType === "rejected" && (
             <div>
               <h3 className="font-semibold text-foreground mb-4">Rejected Applicants</h3>
-              <table className="w-full text-sm">
+              <table className="w-full text-sm table-fixed">
                 <thead>
-                  <tr className="border-b"><th className="pb-2 text-left text-muted-foreground">Applicant</th><th className="pb-2 text-left text-muted-foreground">Position</th><th className="pb-2 text-left text-muted-foreground">Remarks</th></tr>
+                  <tr className="border-b">
+                    <th className="pb-2 text-left text-muted-foreground w-2/5">Applicant</th>
+                    <th className="pb-2 text-left text-muted-foreground w-2/5">Position</th>
+                    <th className="pb-2 text-left text-muted-foreground w-1/5">Remarks</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {rejected.map((app) => (
                     <tr key={app.id} className="border-b last:border-0">
-                      <td className="py-2 font-medium">{getApplicantName(app.applicantId)}</td>
-                      <td className="py-2 text-muted-foreground">{getVacancyTitle(app.vacancyId)}</td>
+                      <td className="py-2 pr-3 font-medium">{getApplicantName(app.applicantId)}</td>
+                      <td className="py-2 pr-3 text-muted-foreground">{getVacancyTitle(app.vacancyId)}</td>
                       <td className="py-2 text-muted-foreground">{app.remarks ?? "—"}</td>
                     </tr>
                   ))}
@@ -158,14 +231,19 @@ export default function Reports() {
           {reportType === "summary" && (
             <div>
               <h3 className="font-semibold text-foreground mb-4">Hiring Summary per Month</h3>
-              <table className="w-full text-sm">
+              <table className="w-full text-sm table-fixed">
                 <thead>
-                  <tr className="border-b"><th className="pb-2 text-left text-muted-foreground">Month</th><th className="pb-2 text-center text-muted-foreground">Applications</th><th className="pb-2 text-center text-muted-foreground">Hired</th><th className="pb-2 text-center text-muted-foreground">Rejected</th></tr>
+                  <tr className="border-b">
+                    <th className="pb-2 text-left text-muted-foreground w-1/2">Month</th>
+                    <th className="pb-2 text-center text-muted-foreground w-1/6">Applications</th>
+                    <th className="pb-2 text-center text-muted-foreground w-1/6">Hired</th>
+                    <th className="pb-2 text-center text-muted-foreground w-1/6">Rejected</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {monthlySummary.map((row) => (
                     <tr key={row.month} className="border-b last:border-0">
-                      <td className="py-2 font-medium">{row.month}</td>
+                      <td className="py-2 pr-3 font-medium">{row.month}</td>
                       <td className="py-2 text-center">{row.applications}</td>
                       <td className="py-2 text-center text-success font-medium">{row.hired}</td>
                       <td className="py-2 text-center text-destructive font-medium">{row.rejected}</td>

@@ -72,3 +72,27 @@ export interface Evaluation {
   evaluatedBy: string;
   evaluatedAt: string;
 }
+
+export interface ApplicantDocument {
+  id: string;
+  applicantId: string;
+  docType: string;
+  fileName: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  uploadedAt: string;
+  url: string;
+}
+
+export interface AuditLog {
+  id: string;
+  userId?: string;
+  userName?: string;
+  userEmail?: string;
+  action: string;
+  ip?: string;
+  userAgent?: string;
+  details?: Record<string, unknown>;
+  createdAt: string;
+}

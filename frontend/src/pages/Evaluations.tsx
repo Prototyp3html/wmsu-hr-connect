@@ -7,15 +7,22 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createEvaluation, fetchApplicants, fetchApplications, fetchEvaluations, fetchJobs } from "@/lib/api";
-import { Award, Trophy } from "lucide-react";
+import { createEvaluation, fetchApplicants, fetchApplications, fetchEvaluations, fetchJobs, updateEvaluation, deleteEvaluation } from "@/lib/api";
+import { Award, Trophy, Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Evaluations() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [showEdit, setShowEdit] = useState(false);
+  const [editingEvaluationId, setEditingEvaluationId] = useState<string | null>(null);
   const [formState, setFormState] = useState({
     applicationId: "",
+    examScore: "",
+    interviewScore: "",
+    remarks: ""
+  });
+  const [editFormState, setEditFormState] = useState({
     examScore: "",
     interviewScore: "",
     remarks: ""
@@ -50,11 +57,49 @@ export default function Evaluations() {
     }
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: { examScore: number; interviewScore: number; remarks?: string } }) =>
+      updateEvaluation(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["evaluations"] });
+      setShowEdit(false);
+      setEditingEvaluationId(null);
+      toast({ title: "Evaluation updated", description: "The evaluation was updated." });
+    },
+    onError: (error) => {
+      toast({ title: "Update failed", description: (error as Error).message, variant: "destructive" });
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteEvaluation,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["evaluations"] });
+      toast({ title: "Evaluation removed", description: "The evaluation was deleted." });
+    },
+    onError: (error) => {
+      toast({ title: "Delete failed", description: (error as Error).message, variant: "destructive" });
+    }
+  });
+
+  const handleOpenEdit = (evaluation: { id: string; examScore: number; interviewScore: number; remarks?: string }) => {
+    setEditingEvaluationId(evaluation.id);
+    setEditFormState({
+      examScore: String(evaluation.examScore ?? ""),
+      interviewScore: String(evaluation.interviewScore ?? ""),
+      remarks: evaluation.remarks ?? ""
+    });
+    setShowEdit(true);
+  };
+
   const getApplicantName = (id: string) =>
     applicants.find((a) => a.id === id)?.fullName ?? "Unknown";
 
   const getVacancyTitle = (id: string) =>
     jobVacancies.find((v) => v.id === id)?.positionTitle ?? "Unknown";
+
+  const editingEvaluation = evaluations.find((ev) => ev.id === editingEvaluationId) ?? null;
+  const editingApplication = applications.find((app) => app.id === editingEvaluation?.applicationId) ?? null;
 
   // Group evaluations by vacancy for ranking
   const vacancyGroups = useMemo(() => {
@@ -144,6 +189,75 @@ export default function Evaluations() {
         </Dialog>
       </div>
 
+      <Dialog
+        open={showEdit}
+        onOpenChange={(open) => {
+          setShowEdit(open);
+          if (!open) {
+            setEditingEvaluationId(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Evaluation</DialogTitle></DialogHeader>
+          <div className="space-y-1 text-sm text-muted-foreground">
+            <p>Applicant: {editingApplication ? getApplicantName(editingApplication.applicantId) : "Unknown"}</p>
+            <p>Vacancy: {editingApplication ? getVacancyTitle(editingApplication.vacancyId) : "Unknown"}</p>
+          </div>
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!editingEvaluationId) {
+                return;
+              }
+              updateMutation.mutate({
+                id: editingEvaluationId,
+                payload: {
+                  examScore: Number(editFormState.examScore),
+                  interviewScore: Number(editFormState.interviewScore),
+                  remarks: editFormState.remarks
+                }
+              });
+            }}
+          >
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Exam Score</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  placeholder="0-100"
+                  value={editFormState.examScore}
+                  onChange={(e) => setEditFormState((prev) => ({ ...prev, examScore: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Interview Score</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  placeholder="0-100"
+                  value={editFormState.interviewScore}
+                  onChange={(e) => setEditFormState((prev) => ({ ...prev, interviewScore: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Remarks</Label>
+              <Textarea
+                placeholder="Evaluation remarks..."
+                value={editFormState.remarks}
+                onChange={(e) => setEditFormState((prev) => ({ ...prev, remarks: e.target.value }))}
+              />
+            </div>
+            <Button className="w-full" type="submit" disabled={updateMutation.isPending}>Update Evaluation</Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Ranking by Vacancy */}
       {vacancyGroups.map(({ vacancy, evaluations: evals }) => (
         <Card key={vacancy.id}>
@@ -160,6 +274,7 @@ export default function Evaluations() {
                     <th className="pb-3 font-medium text-muted-foreground text-center">Interview</th>
                     <th className="pb-3 font-medium text-muted-foreground text-center">Total</th>
                     <th className="pb-3 font-medium text-muted-foreground">Remarks</th>
+                    <th className="pb-3 font-medium text-muted-foreground text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -176,6 +291,29 @@ export default function Evaluations() {
                       <td className="py-3 text-center">{ev!.interviewScore}</td>
                       <td className="py-3 text-center font-bold text-primary">{ev!.totalScore}</td>
                       <td className="py-3 text-muted-foreground">{ev!.remarks}</td>
+                      <td className="py-3">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenEdit(ev!)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => {
+                              if (window.confirm("Delete this evaluation?")) {
+                                deleteMutation.mutate(ev!.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +31,7 @@ export default function Login() {
       <div className="w-full max-w-md space-y-8">
         {/* Header */}
         <div className="text-center space-y-3">
-          <div className="mx-auto w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg">
+          <div className="mx-auto w-16 h-16 rounded-2xl bg-card ring-1 ring-border flex items-center justify-center shadow-lg">
             <img src="/wmsu-seal.png" alt="WMSU seal" className="w-10 h-10" />
           </div>
           <div>
@@ -78,6 +78,9 @@ export default function Login() {
               </div>
               <Button type="submit" className="w-full">
                 Sign In
+              </Button>
+              <Button variant="outline" className="w-full" asChild>
+                <Link to="/">←</Link>
               </Button>
             </form>
           </CardContent>

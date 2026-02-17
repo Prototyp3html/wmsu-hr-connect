@@ -44,7 +44,7 @@ const LandingPage = () => {
         <div className="container mx-auto flex items-center justify-between h-16 px-4">
           <div className="flex items-center gap-3">
             <img
-              src="/frontend/public/wmsu-seal.png"
+              src="../wmsu-seal.png"
               alt="WMSU Seal"
               className="w-9 h-9"
             />
@@ -200,7 +200,7 @@ const LandingPage = () => {
         <div className="container mx-auto px-4 py-8 flex flex-col md:flex-row items-center justify-between gap-4 text-sm">
           <div className="flex items-center gap-3">
             <img
-              src="/frontend/public/wmsu-seal.png"
+              src="/wmsu-seal.png"
               alt="WMSU Seal"
               className="w-7 h-7 brightness-200"
             />

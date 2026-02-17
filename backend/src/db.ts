@@ -5,7 +5,10 @@ let pool: Pool | null = null;
 function getPool() {
   if (!pool) {
     pool = new Pool({
-      connectionString: process.env.DATABASE_URL
+      connectionString: process.env.DATABASE_URL,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000
     });
   }
   return pool;
@@ -80,5 +83,31 @@ export async function initDb() {
       evaluated_by TEXT NOT NULL,
       evaluated_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS applicant_documents (
+      id TEXT PRIMARY KEY,
+      applicant_id TEXT NOT NULL REFERENCES applicants(id) ON DELETE CASCADE,
+      doc_type TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      original_name TEXT NOT NULL,
+      mime_type TEXT NOT NULL,
+      size INTEGER NOT NULL,
+      uploaded_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY,
+      user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      action TEXT NOT NULL,
+      ip TEXT,
+      user_agent TEXT,
+      details TEXT,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
+    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
   `);
 }

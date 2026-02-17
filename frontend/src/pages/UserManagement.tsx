@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createUser, fetchUsers } from "@/lib/api";
+import { createUser, fetchUsers, updateUser, deleteUser } from "@/lib/api";
 import { Plus, Shield, ShieldCheck, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
@@ -15,7 +15,15 @@ export default function UserManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [formState, setFormState] = useState({
+    name: "",
+    email: "",
+    password: "",
+    role: "staff"
+  });
+  const [editFormState, setEditFormState] = useState({
     name: "",
     email: "",
     password: "",
@@ -37,6 +45,30 @@ export default function UserManagement() {
     },
     onError: (error) => {
       toast({ title: "Create failed", description: (error as Error).message, variant: "destructive" });
+    }
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: { name: string; email: string; role: string; password?: string } }) => updateUser(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      setShowEdit(false);
+      setEditingUserId(null);
+      toast({ title: "User updated", description: "Changes saved." });
+    },
+    onError: (error) => {
+      toast({ title: "Update failed", description: (error as Error).message, variant: "destructive" });
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteUser,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast({ title: "User deleted", description: "The user was removed." });
+    },
+    onError: (error) => {
+      toast({ title: "Delete failed", description: (error as Error).message, variant: "destructive" });
     }
   });
 
@@ -102,6 +134,62 @@ export default function UserManagement() {
             </form>
           </DialogContent>
         </Dialog>
+        <Dialog open={showEdit} onOpenChange={setShowEdit}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Edit User</DialogTitle></DialogHeader>
+            <form className="space-y-4" onSubmit={(e) => {
+              e.preventDefault();
+              if (!editingUserId) return;
+              updateMutation.mutate({
+                id: editingUserId,
+                payload: {
+                  name: editFormState.name,
+                  email: editFormState.email,
+                  role: editFormState.role,
+                  ...(editFormState.password ? { password: editFormState.password } : {})
+                }
+              });
+            }}>
+              <div className="space-y-2">
+                <Label>Full Name</Label>
+                <Input
+                  placeholder="e.g., Maria Santos"
+                  value={editFormState.name}
+                  onChange={(e) => setEditFormState((prev) => ({ ...prev, name: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Email Address</Label>
+                <Input
+                  type="email"
+                  placeholder="user@wmsu.edu.ph"
+                  value={editFormState.email}
+                  onChange={(e) => setEditFormState((prev) => ({ ...prev, email: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>New Password (optional)</Label>
+                <Input
+                  type="password"
+                  placeholder="Leave blank to keep current"
+                  value={editFormState.password}
+                  onChange={(e) => setEditFormState((prev) => ({ ...prev, password: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <Select value={editFormState.role} onValueChange={(value) => setEditFormState((prev) => ({ ...prev, role: value }))}>
+                  <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">HR Admin</SelectItem>
+                    <SelectItem value="staff">HR Staff</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button className="w-full" type="submit" disabled={updateMutation.isPending}>Save Changes</Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="grid gap-4">
@@ -126,8 +214,34 @@ export default function UserManagement() {
                   <Badge variant={u.role === "admin" ? "default" : "secondary"}>
                     {u.role === "admin" ? "HR Admin" : "HR Staff"}
                   </Badge>
-                  <Button variant="ghost" size="sm"><Pencil className="w-4 h-4" /></Button>
-                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setEditingUserId(u.id);
+                      setEditFormState({
+                        name: u.name,
+                        email: u.email,
+                        password: "",
+                        role: u.role
+                      });
+                      setShowEdit(true);
+                    }}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => {
+                      if (window.confirm(`Delete ${u.name}?`)) {
+                        deleteMutation.mutate(u.id);
+                      }
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
             </CardContent>

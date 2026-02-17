@@ -7,10 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createJob, fetchDepartments, fetchJobs } from "@/lib/api";
+import { createJob, fetchDepartments, fetchJobs, updateJob, deleteJob } from "@/lib/api";
 import { getVacancyStatusColor } from "@/lib/status";
 import type { JobVacancy } from "@/lib/types";
-import { Plus, Search, Pencil, Eye } from "lucide-react";
+import { Plus, Search, Pencil, Eye, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -23,7 +23,18 @@ export default function JobVacancies() {
   const [filterDept, setFilterDept] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [showCreate, setShowCreate] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formState, setFormState] = useState({
+    positionTitle: "",
+    departmentId: "",
+    salaryGrade: "",
+    qualifications: "",
+    postingDate: "",
+    closingDate: "",
+    status: "Open"
+  });
+  const [editFormState, setEditFormState] = useState({
     positionTitle: "",
     departmentId: "",
     salaryGrade: "",
@@ -61,6 +72,30 @@ export default function JobVacancies() {
     },
     onError: (error) => {
       toast({ title: "Create failed", description: (error as Error).message, variant: "destructive" });
+    }
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Omit<JobVacancy, "id"> }) => updateJob(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      setShowEdit(false);
+      setEditingId(null);
+      toast({ title: "Vacancy updated", description: "Changes saved." });
+    },
+    onError: (error) => {
+      toast({ title: "Update failed", description: (error as Error).message, variant: "destructive" });
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteJob,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      toast({ title: "Vacancy deleted", description: "The vacancy was removed." });
+    },
+    onError: (error) => {
+      toast({ title: "Delete failed", description: (error as Error).message, variant: "destructive" });
     }
   });
 
@@ -175,6 +210,99 @@ export default function JobVacancies() {
             </DialogContent>
           </Dialog>
         )}
+        {user?.role === "admin" && (
+          <Dialog open={showEdit} onOpenChange={setShowEdit}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader><DialogTitle>Edit Job Vacancy</DialogTitle></DialogHeader>
+              <form className="space-y-4" onSubmit={(e) => {
+                e.preventDefault();
+                if (!editingId) return;
+                updateMutation.mutate({
+                  id: editingId,
+                  payload: {
+                    positionTitle: editFormState.positionTitle,
+                    departmentId: editFormState.departmentId,
+                    salaryGrade: Number(editFormState.salaryGrade),
+                    qualifications: editFormState.qualifications,
+                    postingDate: editFormState.postingDate,
+                    closingDate: editFormState.closingDate,
+                    status: editFormState.status as JobVacancy["status"]
+                  }
+                });
+              }}>
+                <div className="space-y-2">
+                  <Label>Position Title</Label>
+                  <Input
+                    placeholder="e.g., Instructor I"
+                    value={editFormState.positionTitle}
+                    onChange={(e) => setEditFormState((prev) => ({ ...prev, positionTitle: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Department</Label>
+                  <Select value={editFormState.departmentId} onValueChange={(value) => setEditFormState((prev) => ({ ...prev, departmentId: value }))}>
+                    <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
+                    <SelectContent>
+                      {departments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Salary Grade</Label>
+                    <Input
+                      type="number"
+                      placeholder="e.g., 12"
+                      value={editFormState.salaryGrade}
+                      onChange={(e) => setEditFormState((prev) => ({ ...prev, salaryGrade: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Status</Label>
+                    <Select value={editFormState.status} onValueChange={(value) => setEditFormState((prev) => ({ ...prev, status: value }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Open">Open</SelectItem>
+                        <SelectItem value="Closed">Closed</SelectItem>
+                        <SelectItem value="Filled">Filled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Posting Date</Label>
+                    <Input
+                      type="date"
+                      value={editFormState.postingDate}
+                      onChange={(e) => setEditFormState((prev) => ({ ...prev, postingDate: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Closing Date</Label>
+                    <Input
+                      type="date"
+                      value={editFormState.closingDate}
+                      onChange={(e) => setEditFormState((prev) => ({ ...prev, closingDate: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Qualification Requirements</Label>
+                  <Textarea
+                    placeholder="Enter required qualifications..."
+                    value={editFormState.qualifications}
+                    onChange={(e) => setEditFormState((prev) => ({ ...prev, qualifications: e.target.value }))}
+                  />
+                </div>
+                <div className="flex justify-end gap-3">
+                  <Button variant="outline" type="button" onClick={() => setShowEdit(false)}>Cancel</Button>
+                  <Button type="submit" disabled={updateMutation.isPending}>Save Changes</Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       {/* Filters */}
@@ -243,7 +371,39 @@ export default function JobVacancies() {
                     </DialogContent>
                   </Dialog>
                   {user?.role === "admin" && (
-                    <Button variant="outline" size="sm"><Pencil className="w-4 h-4 mr-1" /> Edit</Button>
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingId(vacancy.id);
+                          setEditFormState({
+                            positionTitle: vacancy.positionTitle,
+                            departmentId: vacancy.departmentId,
+                            salaryGrade: String(vacancy.salaryGrade),
+                            qualifications: vacancy.qualifications,
+                            postingDate: vacancy.postingDate,
+                            closingDate: vacancy.closingDate,
+                            status: vacancy.status
+                          });
+                          setShowEdit(true);
+                        }}
+                      >
+                        <Pencil className="w-4 h-4 mr-1" /> Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => {
+                          if (window.confirm(`Delete ${vacancy.positionTitle}?`)) {
+                            deleteMutation.mutate(vacancy.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>

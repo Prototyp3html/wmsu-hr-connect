@@ -1,9 +1,11 @@
 import type {
   Applicant,
+  ApplicantDocument,
   Application,
   ApplicationStatus,
   Department,
   Evaluation,
+  AuditLog,
   JobVacancy,
   StatusHistory,
   User
@@ -49,6 +51,27 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   return response.json() as Promise<T>;
 }
 
+async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
+  const token = getAuthToken();
+  const headers = new Headers();
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers,
+    body: formData
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: "Request failed" }));
+    throw new Error(error.error ?? "Request failed");
+  }
+
+  return response.json() as Promise<T>;
+}
+
 export async function login(email: string, password: string) {
   return apiFetch<{ token: string; user: User }>("/auth/login", {
     method: "POST",
@@ -56,8 +79,16 @@ export async function login(email: string, password: string) {
   });
 }
 
+export async function logout() {
+  return apiFetch<void>("/auth/logout", { method: "POST" });
+}
+
 export async function fetchMe() {
   return apiFetch<{ user: User }>("/me");
+}
+
+export async function fetchAuditLogs(limit = 200) {
+  return apiFetch<AuditLog[]>(`/audit-logs?limit=${limit}`);
 }
 
 export async function fetchUsers() {
@@ -69,6 +100,17 @@ export async function createUser(payload: { name: string; email: string; passwor
     method: "POST",
     body: JSON.stringify(payload)
   });
+}
+
+export async function updateUser(id: string, payload: { name: string; email: string; role: string; password?: string }) {
+  return apiFetch<User>(`/users/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function deleteUser(id: string) {
+  return apiFetch<void>(`/users/${id}`, { method: "DELETE" });
 }
 
 export async function fetchDepartments() {
@@ -86,6 +128,17 @@ export async function createJob(payload: Omit<JobVacancy, "id">) {
   });
 }
 
+export async function updateJob(id: string, payload: Omit<JobVacancy, "id">) {
+  return apiFetch<JobVacancy>(`/jobs/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function deleteJob(id: string) {
+  return apiFetch<void>(`/jobs/${id}`, { method: "DELETE" });
+}
+
 export async function fetchApplicants() {
   return apiFetch<Applicant[]>("/applicants");
 }
@@ -95,6 +148,28 @@ export async function createApplicant(payload: Omit<Applicant, "id" | "applicati
     method: "POST",
     body: JSON.stringify(payload)
   });
+}
+
+export async function updateApplicant(id: string, payload: Omit<Applicant, "id" | "applicationId">) {
+  return apiFetch<Applicant>(`/applicants/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function deleteApplicant(id: string) {
+  return apiFetch<void>(`/applicants/${id}`, { method: "DELETE" });
+}
+
+export async function fetchApplicantDocuments(applicantId: string) {
+  return apiFetch<ApplicantDocument[]>(`/applicants/${applicantId}/documents`);
+}
+
+export async function uploadApplicantDocument(applicantId: string, type: string, file: File) {
+  const formData = new FormData();
+  formData.append("type", type);
+  formData.append("file", file);
+  return apiUpload<ApplicantDocument>(`/applicants/${applicantId}/documents`, formData);
 }
 
 export async function fetchApplications() {
@@ -121,6 +196,17 @@ export async function createEvaluation(payload: { applicationId: string; examSco
     method: "POST",
     body: JSON.stringify(payload)
   });
+}
+
+export async function updateEvaluation(id: string, payload: { examScore: number; interviewScore: number; remarks?: string }) {
+  return apiFetch<Evaluation>(`/evaluations/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function deleteEvaluation(id: string) {
+  return apiFetch<void>(`/evaluations/${id}`, { method: "DELETE" });
 }
 
 export async function fetchReportsSummary() {

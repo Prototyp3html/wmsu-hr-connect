@@ -14,6 +14,7 @@ import ApplicationTracking from "./pages/ApplicationTracking";
 import Evaluations from "./pages/Evaluations";
 import Reports from "./pages/Reports";
 import UserManagement from "./pages/UserManagement";
+import AuditLogs from "./pages/AuditLogs";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ const App = () => (
               <Route path="/evaluations" element={<Evaluations />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/users" element={<UserManagement />} />
+              <Route path="/audit-logs" element={<AuditLogs />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
