@@ -162,7 +162,7 @@ export default function Applicants() {
                   onChange={(e) => setFormState((prev) => ({ ...prev, fullName: e.target.value }))}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Contact Number</Label>
                   <Input
@@ -259,7 +259,7 @@ export default function Applicants() {
                   onChange={(e) => setEditFormState((prev) => ({ ...prev, fullName: e.target.value }))}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Contact Number</Label>
                   <Input
@@ -328,14 +328,14 @@ export default function Applicants() {
           return (
             <Card key={applicant.id} className="card-hover">
               <CardContent className="pt-5 pb-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 className="font-semibold text-foreground">{applicant.fullName}</h3>
-                    <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
-                      <Mail className="w-3 h-3" /> {applicant.email}
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-3">
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-foreground truncate">{applicant.fullName}</h3>
+                    <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
+                      <Mail className="w-3 h-3 flex-shrink-0" /> <span className="truncate">{applicant.email}</span>
                     </p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-shrink-0">
                     <Dialog>
                       <DialogTrigger asChild>
                         <Button variant="outline" size="sm">
@@ -345,15 +345,15 @@ export default function Applicants() {
                       <DialogContent className="max-w-lg">
                         <DialogHeader><DialogTitle>{applicant.fullName}</DialogTitle></DialogHeader>
                         <div className="space-y-4">
-                          <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                             <div className="flex items-center gap-2 text-muted-foreground">
-                              <Phone className="w-4 h-4" /> {applicant.contactNumber}
+                              <Phone className="w-4 h-4 flex-shrink-0" /> <span className="truncate">{applicant.contactNumber}</span>
                             </div>
                             <div className="flex items-center gap-2 text-muted-foreground">
-                              <Mail className="w-4 h-4" /> {applicant.email}
+                              <Mail className="w-4 h-4 flex-shrink-0" /> <span className="truncate">{applicant.email}</span>
                             </div>
-                            <div className="flex items-center gap-2 text-muted-foreground col-span-2">
-                              <MapPin className="w-4 h-4" /> {applicant.address}
+                            <div className="flex items-center gap-2 text-muted-foreground sm:col-span-2">
+                              <MapPin className="w-4 h-4 flex-shrink-0" /> <span className="truncate">{applicant.address}</span>
                             </div>
                           </div>
                           <div className="text-sm space-y-2">

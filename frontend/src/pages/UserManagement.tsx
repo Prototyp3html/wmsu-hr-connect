@@ -196,22 +196,22 @@ export default function UserManagement() {
         {users.map((u) => (
           <Card key={u.id} className="card-hover">
             <CardContent className="pt-5 pb-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                     {u.role === "admin" ? (
                       <ShieldCheck className="w-5 h-5 text-primary" />
                     ) : (
                       <Shield className="w-5 h-5 text-muted-foreground" />
                     )}
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">{u.name}</h3>
-                    <p className="text-sm text-muted-foreground">{u.email}</p>
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-foreground truncate">{u.name}</h3>
+                    <p className="text-sm text-muted-foreground truncate">{u.email}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Badge variant={u.role === "admin" ? "default" : "secondary"}>
+                <div className="flex items-center gap-2 sm:gap-3 pl-[52px] sm:pl-0">
+                  <Badge variant={u.role === "admin" ? "default" : "secondary"} className="text-xs">
                     {u.role === "admin" ? "HR Admin" : "HR Staff"}
                   </Badge>
                   <Button

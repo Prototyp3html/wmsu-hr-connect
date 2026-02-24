@@ -151,7 +151,7 @@ export default function Evaluations() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Exam Score</Label>
                     <Input
@@ -221,7 +221,7 @@ export default function Evaluations() {
               });
             }}
           >
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Exam Score</Label>
                 <Input
@@ -264,16 +264,16 @@ export default function Evaluations() {
           <CardContent className="pt-5">
             <h3 className="font-semibold text-foreground mb-1">{vacancy.positionTitle}</h3>
             <p className="text-xs text-muted-foreground mb-4">{vacancy.id} — Ranked by total score</p>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+              <table className="w-full text-sm min-w-[600px]">
                 <thead>
                   <tr className="border-b text-left">
                     <th className="pb-3 font-medium text-muted-foreground w-12">Rank</th>
-                    <th className="pb-3 font-medium text-muted-foreground">Applicant</th>
+                    <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap">Applicant</th>
                     <th className="pb-3 font-medium text-muted-foreground text-center">Exam</th>
                     <th className="pb-3 font-medium text-muted-foreground text-center">Interview</th>
                     <th className="pb-3 font-medium text-muted-foreground text-center">Total</th>
-                    <th className="pb-3 font-medium text-muted-foreground">Remarks</th>
+                    <th className="pb-3 font-medium text-muted-foreground hidden sm:table-cell">Remarks</th>
                     <th className="pb-3 font-medium text-muted-foreground text-right">Actions</th>
                   </tr>
                 </thead>
@@ -286,11 +286,11 @@ export default function Evaluations() {
                           <span className="font-medium">{idx + 1}</span>
                         </div>
                       </td>
-                      <td className="py-3 font-medium text-foreground">{ev!.applicantName}</td>
+                      <td className="py-3 font-medium text-foreground whitespace-nowrap">{ev!.applicantName}</td>
                       <td className="py-3 text-center">{ev!.examScore}</td>
                       <td className="py-3 text-center">{ev!.interviewScore}</td>
                       <td className="py-3 text-center font-bold text-primary">{ev!.totalScore}</td>
-                      <td className="py-3 text-muted-foreground">{ev!.remarks}</td>
+                      <td className="py-3 text-muted-foreground hidden sm:table-cell">{ev!.remarks}</td>
                       <td className="py-3">
                         <div className="flex items-center justify-end gap-2">
                           <Button
