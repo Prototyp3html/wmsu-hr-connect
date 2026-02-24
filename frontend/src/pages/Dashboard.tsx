@@ -237,15 +237,15 @@ export default function Dashboard() {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <Card>
           <CardContent className="pt-5">
             <h3 className="text-sm font-semibold mb-4 text-foreground">Applicant Status Distribution</h3>
-            <ResponsiveContainer width="100%" height={280}>
+            <ResponsiveContainer width="100%" height={220} className="sm:!h-[280px]">
               <BarChart data={statusData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 13%, 90%)" />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} angle={-20} textAnchor="end" height={60} />
-                <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={70} interval={0} />
+                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} width={30} />
                 <Tooltip />
                 <Bar dataKey="count" fill="hsl(348, 83%, 40%)" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -256,15 +256,15 @@ export default function Dashboard() {
         <Card>
           <CardContent className="pt-5">
             <h3 className="text-sm font-semibold mb-4 text-foreground">Vacancy Status</h3>
-            <ResponsiveContainer width="100%" height={280}>
+            <ResponsiveContainer width="100%" height={220} className="sm:!h-[280px]">
               <PieChart>
-                <Pie data={vacancyStatusData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={4} dataKey="value" label>
+                <Pie data={vacancyStatusData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={4} dataKey="value" label className="sm:!innerRadius-[60px] sm:!outerRadius-[100px]">
                   {vacancyStatusData.map((_, idx) => (
                     <Cell key={idx} fill={pieColors[idx]} />
                   ))}
                 </Pie>
                 <Tooltip />
-                <Legend />
+                <Legend wrapperStyle={{ fontSize: '12px' }} />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
@@ -330,14 +330,14 @@ export default function Dashboard() {
       <Card>
         <CardContent className="pt-5">
           <h3 className="text-sm font-semibold mb-4 text-foreground">Recent Applications</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+            <table className="w-full text-sm min-w-[500px]">
               <thead>
                 <tr className="border-b text-left">
-                  <th className="pb-3 font-medium text-muted-foreground">Applicant</th>
-                  <th className="pb-3 font-medium text-muted-foreground">Position</th>
-                  <th className="pb-3 font-medium text-muted-foreground">Date Applied</th>
-                  <th className="pb-3 font-medium text-muted-foreground">Status</th>
+                  <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap">Applicant</th>
+                  <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap">Position</th>
+                  <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap hidden sm:table-cell">Date Applied</th>
+                  <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -346,11 +346,11 @@ export default function Dashboard() {
                   const vacancy = jobVacancies.find((v) => v.id === app.vacancyId);
                   return (
                     <tr key={app.id} className="border-b last:border-0">
-                      <td className="py-3 font-medium text-foreground">{applicant?.fullName}</td>
-                      <td className="py-3 text-muted-foreground">{vacancy?.positionTitle}</td>
-                      <td className="py-3 text-muted-foreground">{app.dateApplied}</td>
+                      <td className="py-3 font-medium text-foreground whitespace-nowrap">{applicant?.fullName}</td>
+                      <td className="py-3 text-muted-foreground whitespace-nowrap max-w-[150px] truncate">{vacancy?.positionTitle}</td>
+                      <td className="py-3 text-muted-foreground whitespace-nowrap hidden sm:table-cell">{app.dateApplied}</td>
                       <td className="py-3">
-                        <span className={`status-badge ${getStatusColor(app.status)}`}>{app.status}</span>
+                        <span className={`status-badge ${getStatusColor(app.status)} text-xs`}>{app.status}</span>
                       </td>
                     </tr>
                   );

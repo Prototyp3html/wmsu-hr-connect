@@ -127,10 +127,10 @@ export default function Reports() {
 
       <Card className="no-print">
         <CardContent className="pt-4 pb-4">
-          <div className="flex items-center gap-3">
-            <FileText className="w-4 h-4 text-muted-foreground" />
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+            <FileText className="w-4 h-4 text-muted-foreground hidden sm:block" />
             <Select value={reportType} onValueChange={(v) => setReportType(v as ReportType)}>
-              <SelectTrigger className="w-64"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-64"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="per-position">Applicants per Position</SelectItem>
                 <SelectItem value="hired">Hired Applicants</SelectItem>
@@ -152,12 +152,13 @@ export default function Reports() {
                 <div key={vacancy.id} className="space-y-2">
                   <h4 className="text-sm font-medium text-foreground mb-2">{vacancy.positionTitle}</h4>
                   {apps.length > 0 ? (
-                    <table className="w-full text-sm mb-4 table-fixed">
+                    <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+                    <table className="w-full text-sm mb-4 min-w-[400px]">
                       <thead>
                         <tr className="border-b">
-                          <th className="pb-2 text-left text-muted-foreground w-1/2">Applicant</th>
-                          <th className="pb-2 text-center text-muted-foreground w-1/4">Date</th>
-                          <th className="pb-2 text-center text-muted-foreground w-1/4">Status</th>
+                          <th className="pb-2 text-left text-muted-foreground">Applicant</th>
+                          <th className="pb-2 text-center text-muted-foreground whitespace-nowrap">Date</th>
+                          <th className="pb-2 text-center text-muted-foreground">Status</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -172,6 +173,7 @@ export default function Reports() {
                         ))}
                       </tbody>
                     </table>
+                    </div>
                   ) : (
                     <p className="text-sm text-muted-foreground mb-4">No applicants</p>
                   )}
@@ -183,67 +185,72 @@ export default function Reports() {
           {reportType === "hired" && (
             <div>
               <h3 className="font-semibold text-foreground mb-4">Hired Applicants</h3>
-              <table className="w-full text-sm table-fixed">
+              <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+              <table className="w-full text-sm min-w-[400px]">
                 <thead>
                   <tr className="border-b">
-                    <th className="pb-2 text-left text-muted-foreground w-2/5">Applicant</th>
-                    <th className="pb-2 text-left text-muted-foreground w-2/5">Position</th>
-                    <th className="pb-2 text-center text-muted-foreground w-1/5">Date Applied</th>
+                    <th className="pb-2 text-left text-muted-foreground">Applicant</th>
+                    <th className="pb-2 text-left text-muted-foreground">Position</th>
+                    <th className="pb-2 text-center text-muted-foreground whitespace-nowrap hidden sm:table-cell">Date Applied</th>
                   </tr>
                 </thead>
                 <tbody>
                   {hired.map((app) => (
                     <tr key={app.id} className="border-b last:border-0">
-                      <td className="py-2 pr-3 font-medium">{getApplicantName(app.applicantId)}</td>
+                      <td className="py-2 pr-3 font-medium whitespace-nowrap">{getApplicantName(app.applicantId)}</td>
                       <td className="py-2 pr-3 text-muted-foreground">{getVacancyTitle(app.vacancyId)}</td>
-                      <td className="py-2 text-center text-muted-foreground">{app.dateApplied}</td>
+                      <td className="py-2 text-center text-muted-foreground whitespace-nowrap hidden sm:table-cell">{app.dateApplied}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
 
           {reportType === "rejected" && (
             <div>
               <h3 className="font-semibold text-foreground mb-4">Rejected Applicants</h3>
-              <table className="w-full text-sm table-fixed">
+              <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+              <table className="w-full text-sm min-w-[400px]">
                 <thead>
                   <tr className="border-b">
-                    <th className="pb-2 text-left text-muted-foreground w-2/5">Applicant</th>
-                    <th className="pb-2 text-left text-muted-foreground w-2/5">Position</th>
-                    <th className="pb-2 text-left text-muted-foreground w-1/5">Remarks</th>
+                    <th className="pb-2 text-left text-muted-foreground">Applicant</th>
+                    <th className="pb-2 text-left text-muted-foreground">Position</th>
+                    <th className="pb-2 text-left text-muted-foreground hidden sm:table-cell">Remarks</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rejected.map((app) => (
                     <tr key={app.id} className="border-b last:border-0">
-                      <td className="py-2 pr-3 font-medium">{getApplicantName(app.applicantId)}</td>
+                      <td className="py-2 pr-3 font-medium whitespace-nowrap">{getApplicantName(app.applicantId)}</td>
                       <td className="py-2 pr-3 text-muted-foreground">{getVacancyTitle(app.vacancyId)}</td>
-                      <td className="py-2 text-muted-foreground">{app.remarks ?? "—"}</td>
+                      <td className="py-2 text-muted-foreground hidden sm:table-cell">{app.remarks ?? "—"}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
 
           {reportType === "summary" && (
             <div>
               <h3 className="font-semibold text-foreground mb-4">Hiring Summary per Month</h3>
-              <table className="w-full text-sm table-fixed">
+              <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+              <table className="w-full text-sm min-w-[350px]">
                 <thead>
                   <tr className="border-b">
-                    <th className="pb-2 text-left text-muted-foreground w-1/2">Month</th>
-                    <th className="pb-2 text-center text-muted-foreground w-1/6">Applications</th>
-                    <th className="pb-2 text-center text-muted-foreground w-1/6">Hired</th>
-                    <th className="pb-2 text-center text-muted-foreground w-1/6">Rejected</th>
+                    <th className="pb-2 text-left text-muted-foreground">Month</th>
+                    <th className="pb-2 text-center text-muted-foreground">Apps</th>
+                    <th className="pb-2 text-center text-muted-foreground">Hired</th>
+                    <th className="pb-2 text-center text-muted-foreground">Rejected</th>
                   </tr>
                 </thead>
                 <tbody>
                   {monthlySummary.map((row) => (
                     <tr key={row.month} className="border-b last:border-0">
-                      <td className="py-2 pr-3 font-medium">{row.month}</td>
+                      <td className="py-2 pr-3 font-medium whitespace-nowrap">{row.month}</td>
                       <td className="py-2 text-center">{row.applications}</td>
                       <td className="py-2 text-center text-success font-medium">{row.hired}</td>
                       <td className="py-2 text-center text-destructive font-medium">{row.rejected}</td>
@@ -251,6 +258,7 @@ export default function Reports() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </CardContent>

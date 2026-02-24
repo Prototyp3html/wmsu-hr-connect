@@ -74,10 +74,10 @@ export default function ApplicationTracking() {
       {/* Filter */}
       <Card>
         <CardContent className="pt-4 pb-4">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
             <Label className="text-sm text-muted-foreground whitespace-nowrap">Filter by Status:</Label>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-64">
+              <SelectTrigger className="w-full sm:w-64">
                 <SelectValue placeholder="All Statuses" />
               </SelectTrigger>
               <SelectContent>
@@ -119,7 +119,7 @@ export default function ApplicationTracking() {
                       )}
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {/* Update Status */}
                     <Dialog onOpenChange={(open) => {
                       if (open) {
@@ -129,7 +129,7 @@ export default function ApplicationTracking() {
                       }
                     }}>
                       <DialogTrigger asChild>
-                        <Button variant="outline" size="sm">Update Status</Button>
+                        <Button variant="outline" size="sm" className="text-xs sm:text-sm">Update Status</Button>
                       </DialogTrigger>
                       <DialogContent>
                         <DialogHeader><DialogTitle>Update Application Status</DialogTitle></DialogHeader>
@@ -180,8 +180,8 @@ export default function ApplicationTracking() {
                       }
                     }}>
                       <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" onClick={() => setSelectedApp(app)}>
-                          <Clock className="w-4 h-4 mr-1" /> History
+                        <Button variant="outline" size="sm" className="text-xs sm:text-sm" onClick={() => setSelectedApp(app)}>
+                          <Clock className="w-4 h-4 sm:mr-1" /> <span className="hidden sm:inline">History</span>
                         </Button>
                       </DialogTrigger>
                       <DialogContent>

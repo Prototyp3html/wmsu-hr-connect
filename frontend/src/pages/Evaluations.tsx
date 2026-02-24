@@ -428,7 +428,6 @@ export default function Evaluations() {
               {formState.applicationId && vacancyLevel === "second_level" && (
                 <SecondLevelForm state={formState} setState={setFormState} />
               )}
-
               <div className="space-y-2">
                 <Label>Remarks</Label>
                 <Textarea
@@ -491,7 +490,6 @@ export default function Evaluations() {
             {editingEvaluation?.positionLevel === "second_level" && (
               <SecondLevelForm state={editFormState} setState={setEditFormState} />
             )}
-
             <div className="space-y-2">
               <Label>Remarks</Label>
               <Textarea
