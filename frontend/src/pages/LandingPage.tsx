@@ -1,8 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useQuery } from "@tanstack/react-query";
-import { fetchJobs, fetchDepartments } from "@/lib/api";
 import {
   Briefcase,
   Users,
@@ -11,9 +9,6 @@ import {
   ArrowRight,
   Monitor,
   Shield,
-  MapPin,
-  Calendar,
-  DollarSign,
 } from "lucide-react";
 
 const features = [
@@ -42,21 +37,6 @@ const features = [
 const LandingPage = () => {
   const navigate = useNavigate();
 
-  const { data: jobVacancies = [] } = useQuery({
-    queryKey: ["jobs"],
-    queryFn: fetchJobs
-  });
-
-  const { data: departments = [] } = useQuery({
-    queryKey: ["departments"],
-    queryFn: fetchDepartments
-  });
-
-  const openJobs = jobVacancies.filter((job) => job.status === "Open");
-
-  const getDepartmentName = (id: string) =>
-    departments.find((d) => d.id === id)?.name ?? "Unknown Department";
-
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Navbar */}
@@ -72,20 +52,9 @@ const LandingPage = () => {
               WMSU HRMS
             </span>
           </div>
-          <div className="flex items-center gap-2 sm:gap-4">
-            <Button
-              variant="ghost"
-              onClick={() => {
-                document.getElementById("job-postings")?.scrollIntoView({ behavior: "smooth" });
-              }}
-              className="text-sm font-medium"
-            >
-              Job Postings
-            </Button>
-            <Button onClick={() => navigate("/login")} className="rounded-full px-6">
-              Log In
-            </Button>
-          </div>
+          <Button onClick={() => navigate("/login")} className="rounded-full px-6">
+            Log In
+          </Button>
         </div>
       </header>
 
@@ -172,63 +141,6 @@ const LandingPage = () => {
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Job Postings */}
-      <section id="job-postings" className="border-t border-border bg-accent/30">
-        <div className="container mx-auto px-4 py-16 md:py-20">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-display font-bold text-foreground">
-              Open Job Postings
-            </h2>
-            <p className="mt-2 text-muted-foreground max-w-lg mx-auto">
-              Browse current job vacancies at Western Mindanao State University.
-            </p>
-          </div>
-          {openJobs.length === 0 ? (
-            <div className="text-center py-12">
-              <Briefcase className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">No open positions at the moment. Check back soon!</p>
-            </div>
-          ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {openJobs.map((job) => (
-                <Card key={job.id} className="border border-border rounded-xl overflow-hidden hover:shadow-lg transition-shadow">
-                  <CardContent className="p-0">
-                    <div className="bg-primary/10 px-6 py-4 border-b border-border">
-                      <h3 className="font-semibold text-lg text-foreground">{job.positionTitle}</h3>
-                      <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-                        <MapPin className="w-3.5 h-3.5" />
-                        {getDepartmentName(job.departmentId)}
-                      </p>
-                    </div>
-                    <div className="p-6 space-y-4">
-                      <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <DollarSign className="w-4 h-4" />
-                          SG-{job.salaryGrade}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4" />
-                          Closes: {job.closingDate}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground line-clamp-3">
-                        {job.qualifications}
-                      </p>
-                      <Button
-                        className="w-full bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                        onClick={() => navigate("/login")}
-                      >
-                        Apply Now
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
         </div>
       </section>
 
