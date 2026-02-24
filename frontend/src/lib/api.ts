@@ -176,6 +176,16 @@ export async function fetchApplications() {
   return apiFetch<Application[]>("/applications");
 }
 
+export async function createApplication(payload: { applicantId: string; vacancyId: string; dateApplied: string; remarks?: string }) {
+  return apiFetch<Application>("/applications", {
+    method: "POST",
+    body: JSON.stringify({
+      ...payload,
+      status: "Application Received"
+    })
+  });
+}
+
 export async function updateApplicationStatus(payload: { id: string; status: ApplicationStatus; remarks?: string }) {
   return apiFetch<{ application: Application; history: StatusHistory }>(`/applications/${payload.id}/status`, {
     method: "PATCH",
@@ -191,14 +201,45 @@ export async function fetchEvaluations() {
   return apiFetch<Evaluation[]>("/evaluations");
 }
 
-export async function createEvaluation(payload: { applicationId: string; examScore: number; interviewScore: number; remarks?: string }) {
+export async function createEvaluation(payload: {
+  applicationId: string;
+  positionLevel: "first_level" | "second_level";
+  communicationSkills?: number;
+  abilityToPresent?: number;
+  alertness?: number;
+  judgement?: number;
+  emotionalStability?: number;
+  selfConfidence?: number;
+  oralCommunication?: number;
+  analyticalAbility?: number;
+  initiative?: number;
+  stressTolerance?: number;
+  sensitivity?: number;
+  serviceOrientation?: number;
+  remarks?: string;
+}) {
   return apiFetch<Evaluation>("/evaluations", {
     method: "POST",
     body: JSON.stringify(payload)
   });
 }
 
-export async function updateEvaluation(id: string, payload: { examScore: number; interviewScore: number; remarks?: string }) {
+export async function updateEvaluation(id: string, payload: {
+  positionLevel: "first_level" | "second_level";
+  communicationSkills?: number;
+  abilityToPresent?: number;
+  alertness?: number;
+  judgement?: number;
+  emotionalStability?: number;
+  selfConfidence?: number;
+  oralCommunication?: number;
+  analyticalAbility?: number;
+  initiative?: number;
+  stressTolerance?: number;
+  sensitivity?: number;
+  serviceOrientation?: number;
+  remarks?: string;
+}) {
   return apiFetch<Evaluation>(`/evaluations/${id}`, {
     method: "PUT",
     body: JSON.stringify(payload)

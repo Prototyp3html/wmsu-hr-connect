@@ -7,9 +7,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchApplicants, fetchApplications, fetchJobs, fetchStatusHistory, updateApplicationStatus } from "@/lib/api";
-import { allStatuses, getStatusColor } from "@/lib/status";
+import { allStatuses, getStatusColor, getNextSuggestedStatus } from "@/lib/status";
 import type { Application, ApplicationStatus } from "@/lib/types";
-import { Clock, MessageSquare } from "lucide-react";
+import { Clock, MessageSquare, ArrowRight, Lightbulb } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ApplicationTracking() {
@@ -103,9 +103,20 @@ export default function ApplicationTracking() {
                     <p className="text-sm text-muted-foreground">
                       Applied for <span className="font-medium text-foreground">{getVacancyTitle(app.vacancyId)}</span>
                     </p>
-                    <div className="flex items-center gap-3 mt-2">
-                      <span className={`status-badge ${getStatusColor(app.status)}`}>{app.status}</span>
-                      <span className="text-xs text-muted-foreground">Applied: {app.dateApplied}</span>
+                    <div className="flex flex-col gap-3 mt-2">
+                      <div className="flex items-center gap-3">
+                        <span className={`status-badge ${getStatusColor(app.status)}`}>{app.status}</span>
+                        <span className="text-xs text-muted-foreground">Applied: {app.dateApplied}</span>
+                      </div>
+                      {getNextSuggestedStatus(app.status) && (
+                        <div className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded text-sm">
+                          <Lightbulb className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                          <span className="text-blue-900">
+                            Next: <span className="font-semibold">{getNextSuggestedStatus(app.status)}</span>
+                          </span>
+                          <ArrowRight className="w-4 h-4 text-blue-600 ml-auto flex-shrink-0" />
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex gap-2">

@@ -25,6 +25,20 @@ export function getStatusColor(status: ApplicationStatus): string {
   return colors[status];
 }
 
+export function getNextSuggestedStatus(currentStatus: ApplicationStatus): ApplicationStatus | null {
+  const statusFlow: Record<ApplicationStatus, ApplicationStatus | null> = {
+    "Application Received": "Under Initial Screening",
+    "Under Initial Screening": "For Examination",
+    "For Examination": "For Interview",
+    "For Interview": "For Final Evaluation",
+    "For Final Evaluation": "Approved",
+    "Approved": "Hired",
+    "Hired": null,
+    "Rejected": null
+  };
+  return statusFlow[currentStatus] ?? null;
+}
+
 export function getVacancyStatusColor(status: string): string {
   const colors: Record<string, string> = {
     Open: "bg-success/10 text-success",

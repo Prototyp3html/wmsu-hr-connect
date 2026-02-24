@@ -1,10 +1,12 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
-import { fetchApplicants, fetchApplications, fetchJobs, fetchReportsSummary } from "@/lib/api";
+import { fetchApplicants, fetchApplications, fetchJobs, fetchReportsSummary, fetchEvaluations } from "@/lib/api";
 import { allStatuses, getStatusColor } from "@/lib/status";
-import { Briefcase, Users, ClipboardList, UserCheck } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
+import { Briefcase, Users, ClipboardList, UserCheck, TrendingUp, Award } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line } from "recharts";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useState, useMemo } from "react";
 
 const pieColors = [
   "hsl(217, 91%, 60%)",
@@ -19,6 +21,10 @@ const pieColors = [
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterPositionLevel, setFilterPositionLevel] = useState("all");
+  const [sortBy, setSortBy] = useState("date");
+
   const { data: applicants = [] } = useQuery({
     queryKey: ["applicants"],
     queryFn: fetchApplicants
@@ -31,10 +37,93 @@ export default function Dashboard() {
     queryKey: ["applications"],
     queryFn: fetchApplications
   });
+  const { data: evaluations = [] } = useQuery({
+    queryKey: ["evaluations"],
+    queryFn: fetchEvaluations
+  });
   const { data: summary } = useQuery({
     queryKey: ["reports-summary"],
     queryFn: fetchReportsSummary
   });
+
+  // Filtered applications
+  const filteredApplications = useMemo(() => {
+    return applications.filter((app) => {
+      if (filterStatus !== "all" && app.status !== filterStatus) return false;
+      if (filterPositionLevel !== "all") {
+        const vacancy = jobVacancies.find((v) => v.id === app.vacancyId);
+        if (vacancy && (vacancy as any).positionLevel !== filterPositionLevel) return false;
+      }
+      return true;
+    });
+  }, [applications, jobVacancies, filterStatus, filterPositionLevel]);
+
+  // Top-rated applicants with evaluation scores
+  const topRatedApplicants = useMemo(() => {
+    const withScores = filteredApplications
+      .map((app) => {
+        const evaluation = evaluations.find((e) => e.applicationId === app.id);
+        const applicant = applicants.find((a) => a.id === app.applicantId);
+        const vacancy = jobVacancies.find((v) => v.id === app.vacancyId);
+        return {
+          applicationId: app.id,
+          applicantName: applicant?.fullName ?? "Unknown",
+          position: vacancy?.positionTitle ?? "Unknown",
+          score: evaluation?.totalScore ?? 0,
+          status: app.status,
+          hasEvaluation: !!evaluation
+        };
+      })
+      .filter((item) => item.hasEvaluation);
+
+    if (sortBy === "score") {
+      return withScores.sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, 5);
+    } else {
+      return withScores.slice(0, 5);
+    }
+  }, [filteredApplications, evaluations, applicants, jobVacancies, sortBy]);
+
+  // Screening pass rate
+  const screeningStats = useMemo(() => {
+    const receivedCount = filteredApplications.filter((a) => a.status === "Application Received").length;
+    const passingScreening = filteredApplications.filter(
+      (a) => a.status !== "Application Received" && a.status !== "Rejected"
+    ).length;
+    const rejectedCount = filteredApplications.filter((a) => a.status === "Rejected").length;
+    
+    const passRate = filteredApplications.length > 0 
+      ? Math.round((passingScreening / filteredApplications.length) * 100)
+      : 0;
+
+    return { receivedCount, passingScreening, rejectedCount, passRate };
+  }, [filteredApplications]);
+
+  // Position level performance
+  const positionLevelData = useMemo(() => {
+    return ["first_level", "second_level"].map((level) => {
+      const appsInLevel = applications.filter((app) => {
+        const vacancy = jobVacancies.find((v) => v.id === app.vacancyId);
+        return (vacancy as any)?.positionLevel === level;
+      });
+      const evaluatedCount = appsInLevel.filter((app) =>
+        evaluations.find((e) => e.applicationId === app.id)
+      ).length;
+      const avgScore =
+        evaluatedCount > 0
+          ? appsInLevel.reduce((sum, app) => {
+              const evaluation = evaluations.find((e) => e.applicationId === app.id);
+              return sum + (evaluation?.totalScore ?? 0);
+            }, 0) / evaluatedCount
+          : 0;
+
+      return {
+        name: level === "first_level" ? "First Level" : "Second Level",
+        evaluated: evaluatedCount,
+        avgScore: Math.round(avgScore * 100) / 100,
+        total: appsInLevel.length
+      };
+    });
+  }, [applications, jobVacancies, evaluations]);
 
   const statCards = [
     {
@@ -52,24 +141,24 @@ export default function Dashboard() {
       bg: "bg-primary/10",
     },
     {
-      label: "Under Screening",
-      value: applications.filter((a) => a.status === "Under Initial Screening").length,
-      icon: ClipboardList,
-      color: "text-warning",
-      bg: "bg-warning/10",
-    },
-    {
-      label: "Hired Applicants",
-      value: applications.filter((a) => a.status === "Hired").length,
-      icon: UserCheck,
+      label: "Passing Screening",
+      value: screeningStats.passingScreening,
+      icon: TrendingUp,
       color: "text-success",
       bg: "bg-success/10",
+    },
+    {
+      label: "Screening Rate",
+      value: `${screeningStats.passRate}%`,
+      icon: UserCheck,
+      color: "text-warning",
+      bg: "bg-warning/10",
     },
   ];
 
   const statusData = allStatuses.map((status) => ({
     name: status.replace("Under ", "").replace("For ", ""),
-    count: applications.filter((a) => a.status === status).length,
+    count: filteredApplications.filter((a) => a.status === status).length,
   }));
 
   const vacancyStatusData = [
@@ -86,6 +175,47 @@ export default function Dashboard() {
           Welcome back, {user?.name}. Here's an overview of the hiring pipeline.
         </p>
       </div>
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="pt-4 pb-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1">
+              <label className="text-xs font-medium text-muted-foreground mb-2 block">Filter by Status</label>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  {allStatuses.map((status) => (
+                    <SelectItem key={status} value={status}>{status}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1">
+              <label className="text-xs font-medium text-muted-foreground mb-2 block">Filter by Position Level</label>
+              <Select value={filterPositionLevel} onValueChange={setFilterPositionLevel}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Levels</SelectItem>
+                  <SelectItem value="first_level">First Level</SelectItem>
+                  <SelectItem value="second_level">Second Level</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1">
+              <label className="text-xs font-medium text-muted-foreground mb-2 block">Sort Top Applicants By</label>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="score">Highest Score</SelectItem>
+                  <SelectItem value="date">Latest</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -141,6 +271,61 @@ export default function Dashboard() {
         </Card>
       </div>
 
+      {/* Position Level Performance & Top Rated Applicants */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardContent className="pt-5">
+            <h3 className="text-sm font-semibold mb-4 text-foreground">Position Level Performance</h3>
+            <div className="space-y-4">
+              {positionLevelData.map((level) => (
+                <div key={level.name} className="border rounded p-3">
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="font-medium text-sm text-foreground">{level.name}</span>
+                    <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">{level.evaluated}/{level.total}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Avg Score:</span>
+                    <span className="text-sm font-bold text-foreground">{level.avgScore}</span>
+                  </div>
+                  <div className="mt-2 bg-secondary h-2 rounded overflow-hidden">
+                    <div 
+                      className="bg-success h-full transition-all"
+                      style={{ width: level.total > 0 ? `${(level.avgScore / 100) * 100}%` : "0%" }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-5">
+            <h3 className="text-sm font-semibold mb-4 text-foreground flex items-center gap-2">
+              <Award className="w-4 h-4" /> Top Rated Applicants
+            </h3>
+            <div className="space-y-3">
+              {topRatedApplicants.length > 0 ? (
+                topRatedApplicants.map((app) => (
+                  <div key={app.applicationId} className="border rounded p-3 hover:bg-accent/50 transition-colors">
+                    <div className="flex justify-between items-start mb-1">
+                      <div>
+                        <p className="font-medium text-sm text-foreground">{app.applicantName}</p>
+                        <p className="text-xs text-muted-foreground">{app.position}</p>
+                      </div>
+                      <span className="text-lg font-bold text-success">{app.score}</span>
+                    </div>
+                    <span className={`status-badge ${getStatusColor(app.status)} text-xs`}>{app.status}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground italic">No evaluated applicants yet</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Recent Applications */}
       <Card>
         <CardContent className="pt-5">
@@ -156,7 +341,7 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {applications.slice(0, 5).map((app) => {
+                {filteredApplications.slice(0, 5).map((app) => {
                   const applicant = applicants.find((a) => a.id === app.applicantId);
                   const vacancy = jobVacancies.find((v) => v.id === app.vacancyId);
                   return (

@@ -135,7 +135,8 @@ function mapJob(row: any) {
     qualifications: row.qualifications,
     postingDate: row.posting_date,
     closingDate: row.closing_date,
-    status: row.status
+    status: row.status,
+    positionLevel: row.position_level ?? "first_level"
   };
 }
 
@@ -177,8 +178,21 @@ function mapEvaluation(row: any) {
   return {
     id: row.id,
     applicationId: row.application_id,
-    examScore: row.exam_score,
-    interviewScore: row.interview_score,
+    positionLevel: row.position_level ?? "first_level",
+    communicationSkills: row.communication_skills,
+    abilityToPresent: row.ability_to_present,
+    alertness: row.alertness,
+    judgement: row.judgement,
+    emotionalStability: row.emotional_stability,
+    selfConfidence: row.self_confidence,
+    firstLevelTotal: row.first_level_total,
+    oralCommunication: row.oral_communication,
+    analyticalAbility: row.analytical_ability,
+    initiative: row.initiative,
+    stressTolerance: row.stress_tolerance,
+    sensitivity: row.sensitivity,
+    serviceOrientation: row.service_orientation,
+    secondLevelTotal: row.second_level_total,
     totalScore: row.total_score,
     remarks: row.remarks ?? "",
     evaluatedBy: row.evaluated_by,
@@ -444,7 +458,7 @@ app.get("/api/jobs/:id", asyncHandler(async (req, res) => {
 }));
 
 app.post("/api/jobs", requireAuth, asyncHandler(async (req: AuthedRequest, res) => {
-  const { positionTitle, departmentId, salaryGrade, qualifications, postingDate, closingDate, status } = req.body as any;
+  const { positionTitle, departmentId, salaryGrade, qualifications, postingDate, closingDate, status, positionLevel } = req.body as any;
   if (!positionTitle || !departmentId || !salaryGrade || !qualifications || !postingDate || !closingDate || !status) {
     res.status(400).json({ error: "Missing required fields" });
     return;
@@ -458,22 +472,23 @@ app.post("/api/jobs", requireAuth, asyncHandler(async (req: AuthedRequest, res) 
     qualifications,
     postingDate,
     closingDate,
-    status
+    status,
+    positionLevel: positionLevel ?? "first_level"
   };
 
   await query(
-    "INSERT INTO job_vacancies (id, position_title, department_id, salary_grade, qualifications, posting_date, closing_date, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-    [job.id, job.positionTitle, job.departmentId, job.salaryGrade, job.qualifications, job.postingDate, job.closingDate, job.status]
+    "INSERT INTO job_vacancies (id, position_title, department_id, salary_grade, qualifications, posting_date, closing_date, status, position_level) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+    [job.id, job.positionTitle, job.departmentId, job.salaryGrade, job.qualifications, job.postingDate, job.closingDate, job.status, job.positionLevel]
   );
 
   res.status(201).json(job);
 }));
 
 app.put("/api/jobs/:id", requireAuth, asyncHandler(async (req: AuthedRequest, res) => {
-  const { positionTitle, departmentId, salaryGrade, qualifications, postingDate, closingDate, status } = req.body as any;
+  const { positionTitle, departmentId, salaryGrade, qualifications, postingDate, closingDate, status, positionLevel } = req.body as any;
   const result = await query(
-    "UPDATE job_vacancies SET position_title=$2, department_id=$3, salary_grade=$4, qualifications=$5, posting_date=$6, closing_date=$7, status=$8 WHERE id=$1 RETURNING *",
-    [req.params.id, positionTitle, departmentId, salaryGrade, qualifications, postingDate, closingDate, status]
+    "UPDATE job_vacancies SET position_title=$2, department_id=$3, salary_grade=$4, qualifications=$5, posting_date=$6, closing_date=$7, status=$8, position_level=$9 WHERE id=$1 RETURNING *",
+    [req.params.id, positionTitle, departmentId, salaryGrade, qualifications, postingDate, closingDate, status, positionLevel ?? "first_level"]
   );
 
   if (result.rowCount === 0) {
@@ -710,18 +725,81 @@ app.get("/api/evaluations", asyncHandler(async (_req, res) => {
 }));
 
 app.post("/api/evaluations", requireAuth, asyncHandler(async (req: AuthedRequest, res) => {
-  const { applicationId, examScore, interviewScore, remarks } = req.body as any;
-  if (!applicationId || examScore === undefined || interviewScore === undefined) {
+  const {
+    applicationId,
+    positionLevel,
+    communicationSkills,
+    abilityToPresent,
+    alertness,
+    judgement,
+    emotionalStability,
+    selfConfidence,
+    oralCommunication,
+    analyticalAbility,
+    initiative,
+    stressTolerance,
+    sensitivity,
+    serviceOrientation,
+    remarks
+  } = req.body as any;
+
+  if (!applicationId || !positionLevel) {
     res.status(400).json({ error: "Missing required fields" });
     return;
   }
 
-  const totalScore = Number(examScore) * 0.5 + Number(interviewScore) * 0.5;
+  // Validate that at least one score is provided
+  const hasFirstLevelScores = communicationSkills !== undefined || abilityToPresent !== undefined || alertness !== undefined || judgement !== undefined || emotionalStability !== undefined || selfConfidence !== undefined;
+  const hasSecondLevelScores = oralCommunication !== undefined || analyticalAbility !== undefined || initiative !== undefined || stressTolerance !== undefined || sensitivity !== undefined || serviceOrientation !== undefined;
+  
+  if (!hasFirstLevelScores && !hasSecondLevelScores) {
+    res.status(400).json({ error: "Please enter at least one assessment score" });
+    return;
+  }
+
+  let firstLevelTotal = null;
+  let secondLevelTotal = null;
+  let totalScore = 0;
+
+  if (positionLevel === "first_level") {
+    firstLevelTotal =
+      (communicationSkills || 0) +
+      (abilityToPresent || 0) +
+      (alertness || 0) +
+      (judgement || 0) +
+      (emotionalStability || 0) +
+      (selfConfidence || 0);
+    totalScore = firstLevelTotal;
+  } else if (positionLevel === "second_level") {
+    secondLevelTotal =
+      (oralCommunication || 0) +
+      (analyticalAbility || 0) +
+      (judgement || 0) +
+      (initiative || 0) +
+      (stressTolerance || 0) +
+      (sensitivity || 0) +
+      (serviceOrientation || 0);
+    totalScore = secondLevelTotal;
+  }
+
   const evaluation = {
     id: randomUUID(),
     applicationId,
-    examScore: Number(examScore),
-    interviewScore: Number(interviewScore),
+    positionLevel,
+    communicationSkills: communicationSkills || null,
+    abilityToPresent: abilityToPresent || null,
+    alertness: alertness || null,
+    judgement: judgement || null,
+    emotionalStability: emotionalStability || null,
+    selfConfidence: selfConfidence || null,
+    firstLevelTotal,
+    oralCommunication: oralCommunication || null,
+    analyticalAbility: analyticalAbility || null,
+    initiative: initiative || null,
+    stressTolerance: stressTolerance || null,
+    sensitivity: sensitivity || null,
+    serviceOrientation: serviceOrientation || null,
+    secondLevelTotal,
     totalScore,
     remarks: remarks ?? "",
     evaluatedBy: req.user?.name ?? "System",
@@ -729,12 +807,30 @@ app.post("/api/evaluations", requireAuth, asyncHandler(async (req: AuthedRequest
   };
 
   await query(
-    "INSERT INTO evaluations (id, application_id, exam_score, interview_score, total_score, remarks, evaluated_by, evaluated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+    `INSERT INTO evaluations (
+      id, application_id, position_level,
+      communication_skills, ability_to_present, alertness, judgement, emotional_stability, self_confidence, first_level_total,
+      oral_communication, analytical_ability, initiative, stress_tolerance, sensitivity, service_orientation, second_level_total,
+      total_score, remarks, evaluated_by, evaluated_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)`,
     [
       evaluation.id,
       evaluation.applicationId,
-      evaluation.examScore,
-      evaluation.interviewScore,
+      evaluation.positionLevel,
+      evaluation.communicationSkills,
+      evaluation.abilityToPresent,
+      evaluation.alertness,
+      evaluation.judgement,
+      evaluation.emotionalStability,
+      evaluation.selfConfidence,
+      evaluation.firstLevelTotal,
+      evaluation.oralCommunication,
+      evaluation.analyticalAbility,
+      evaluation.initiative,
+      evaluation.stressTolerance,
+      evaluation.sensitivity,
+      evaluation.serviceOrientation,
+      evaluation.secondLevelTotal,
       evaluation.totalScore,
       evaluation.remarks,
       evaluation.evaluatedBy,
@@ -746,16 +842,93 @@ app.post("/api/evaluations", requireAuth, asyncHandler(async (req: AuthedRequest
 }));
 
 app.put("/api/evaluations/:id", requireAuth, asyncHandler(async (req: AuthedRequest, res) => {
-  const { examScore, interviewScore, remarks } = req.body as any;
-  if (examScore === undefined || interviewScore === undefined) {
-    res.status(400).json({ error: "Missing required fields" });
+  const {
+    positionLevel,
+    communicationSkills,
+    abilityToPresent,
+    alertness,
+    judgement,
+    emotionalStability,
+    selfConfidence,
+    oralCommunication,
+    analyticalAbility,
+    initiative,
+    stressTolerance,
+    sensitivity,
+    serviceOrientation,
+    remarks
+  } = req.body as any;
+
+  if (!positionLevel) {
+    res.status(400).json({ error: "Position level is required" });
     return;
   }
 
-  const totalScore = Number(examScore) * 0.5 + Number(interviewScore) * 0.5;
+  let firstLevelTotal = null;
+  let secondLevelTotal = null;
+  let totalScore = 0;
+
+  if (positionLevel === "first_level") {
+    firstLevelTotal =
+      (communicationSkills || 0) +
+      (abilityToPresent || 0) +
+      (alertness || 0) +
+      (judgement || 0) +
+      (emotionalStability || 0) +
+      (selfConfidence || 0);
+    totalScore = firstLevelTotal;
+  } else if (positionLevel === "second_level") {
+    secondLevelTotal =
+      (oralCommunication || 0) +
+      (analyticalAbility || 0) +
+      (judgement || 0) +
+      (initiative || 0) +
+      (stressTolerance || 0) +
+      (sensitivity || 0) +
+      (serviceOrientation || 0);
+    totalScore = secondLevelTotal;
+  }
+
   const result = await query(
-    "UPDATE evaluations SET exam_score=$2, interview_score=$3, total_score=$4, remarks=$5 WHERE id=$1 RETURNING *",
-    [req.params.id, Number(examScore), Number(interviewScore), totalScore, remarks ?? ""]
+    `UPDATE evaluations SET
+      position_level=$2,
+      communication_skills=$3,
+      ability_to_present=$4,
+      alertness=$5,
+      judgement=$6,
+      emotional_stability=$7,
+      self_confidence=$8,
+      first_level_total=$9,
+      oral_communication=$10,
+      analytical_ability=$11,
+      initiative=$12,
+      stress_tolerance=$13,
+      sensitivity=$14,
+      service_orientation=$15,
+      second_level_total=$16,
+      total_score=$17,
+      remarks=$18
+    WHERE id=$1 RETURNING *`,
+    [
+      req.params.id,
+      positionLevel,
+      communicationSkills || null,
+      abilityToPresent || null,
+      alertness || null,
+      judgement || null,
+      emotionalStability || null,
+      selfConfidence || null,
+      firstLevelTotal,
+      oralCommunication || null,
+      analyticalAbility || null,
+      initiative || null,
+      stressTolerance || null,
+      sensitivity || null,
+      serviceOrientation || null,
+      secondLevelTotal,
+      totalScore,
+      remarks ?? ""
+    ]
   );
 
   if (result.rowCount === 0) {

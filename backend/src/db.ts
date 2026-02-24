@@ -42,7 +42,8 @@ export async function initDb() {
       qualifications TEXT NOT NULL,
       posting_date TEXT NOT NULL,
       closing_date TEXT NOT NULL,
-      status TEXT NOT NULL
+      status TEXT NOT NULL,
+      position_level TEXT DEFAULT 'first_level'
     );
 
     CREATE TABLE IF NOT EXISTS applicants (
@@ -76,8 +77,21 @@ export async function initDb() {
     CREATE TABLE IF NOT EXISTS evaluations (
       id TEXT PRIMARY KEY,
       application_id TEXT NOT NULL REFERENCES applications(id),
-      exam_score REAL NOT NULL,
-      interview_score REAL NOT NULL,
+      position_level TEXT NOT NULL DEFAULT 'first_level',
+      communication_skills REAL,
+      ability_to_present REAL,
+      alertness REAL,
+      judgement REAL,
+      emotional_stability REAL,
+      self_confidence REAL,
+      first_level_total REAL,
+      oral_communication REAL,
+      analytical_ability REAL,
+      initiative REAL,
+      stress_tolerance REAL,
+      sensitivity REAL,
+      service_orientation REAL,
+      second_level_total REAL,
       total_score REAL NOT NULL,
       remarks TEXT,
       evaluated_by TEXT NOT NULL,
@@ -110,4 +124,63 @@ export async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
   `);
+
+  // Add position_level column if it doesn't exist (for existing databases)
+  await query(`
+    ALTER TABLE job_vacancies 
+    ADD COLUMN IF NOT EXISTS position_level TEXT DEFAULT 'first_level';
+  `).catch(() => {
+    // Ignore errors if column already exists
+  });
+
+  // Add position_level column to evaluations if it doesn't exist
+  await query(`
+    ALTER TABLE evaluations 
+    ADD COLUMN IF NOT EXISTS position_level TEXT DEFAULT 'first_level';
+  `).catch(() => {});
+
+  // Add all missing assessment score columns to evaluations
+  await query(`
+    ALTER TABLE evaluations 
+    ADD COLUMN IF NOT EXISTS communication_skills REAL,
+    ADD COLUMN IF NOT EXISTS ability_to_present REAL,
+    ADD COLUMN IF NOT EXISTS alertness REAL,
+    ADD COLUMN IF NOT EXISTS judgement REAL,
+    ADD COLUMN IF NOT EXISTS emotional_stability REAL,
+    ADD COLUMN IF NOT EXISTS self_confidence REAL,
+    ADD COLUMN IF NOT EXISTS first_level_total REAL,
+    ADD COLUMN IF NOT EXISTS oral_communication REAL,
+    ADD COLUMN IF NOT EXISTS analytical_ability REAL,
+    ADD COLUMN IF NOT EXISTS initiative REAL,
+    ADD COLUMN IF NOT EXISTS stress_tolerance REAL,
+    ADD COLUMN IF NOT EXISTS sensitivity REAL,
+    ADD COLUMN IF NOT EXISTS service_orientation REAL,
+    ADD COLUMN IF NOT EXISTS second_level_total REAL;
+  `).catch(() => {});
+
+  // Make exam_score nullable if it exists (for backward compatibility)
+  await query(`
+    ALTER TABLE evaluations 
+    ALTER COLUMN exam_score DROP NOT NULL;
+  `).catch(() => {});
+
+  // Make interview_score and other old columns nullable
+  await query(`
+    ALTER TABLE evaluations 
+    ALTER COLUMN interview_score DROP NOT NULL;
+  `).catch(() => {});
+
+  // Make written_exam_score nullable
+  await query(`
+    ALTER TABLE evaluations 
+    ALTER COLUMN written_exam_score DROP NOT NULL;
+  `).catch(() => {});
+
+  // Drop old columns if they exist (we're replacing them with new assessment columns)
+  await query(`
+    ALTER TABLE evaluations 
+    DROP COLUMN IF EXISTS exam_score,
+    DROP COLUMN IF EXISTS interview_score,
+    DROP COLUMN IF EXISTS written_exam_score;
+  `).catch(() => {});
 }

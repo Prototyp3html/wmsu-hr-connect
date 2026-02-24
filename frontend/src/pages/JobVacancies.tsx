@@ -32,7 +32,8 @@ export default function JobVacancies() {
     qualifications: "",
     postingDate: "",
     closingDate: "",
-    status: "Open"
+    status: "Open",
+    positionLevel: "first_level"
   });
   const [editFormState, setEditFormState] = useState({
     positionTitle: "",
@@ -41,7 +42,8 @@ export default function JobVacancies() {
     qualifications: "",
     postingDate: "",
     closingDate: "",
-    status: "Open"
+    status: "Open",
+    positionLevel: "first_level"
   });
 
   const { data: jobVacancies = [] } = useQuery({
@@ -134,7 +136,8 @@ export default function JobVacancies() {
                   qualifications: formState.qualifications,
                   postingDate: formState.postingDate,
                   closingDate: formState.closingDate,
-                  status: formState.status as JobVacancy["status"]
+                  status: formState.status as JobVacancy["status"],
+                  positionLevel: formState.positionLevel
                 });
               }}>
                 <div className="space-y-2">
@@ -175,6 +178,16 @@ export default function JobVacancies() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Position Level</Label>
+                  <Select value={formState.positionLevel} onValueChange={(value) => setFormState((prev) => ({ ...prev, positionLevel: value as "first_level" | "second_level" }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="first_level">First Level Administrative Position</SelectItem>
+                      <SelectItem value="second_level">Second Level Administrative Position</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -226,7 +239,8 @@ export default function JobVacancies() {
                     qualifications: editFormState.qualifications,
                     postingDate: editFormState.postingDate,
                     closingDate: editFormState.closingDate,
-                    status: editFormState.status as JobVacancy["status"]
+                    status: editFormState.status as JobVacancy["status"],
+                    positionLevel: editFormState.positionLevel
                   }
                 });
               }}>
@@ -268,6 +282,16 @@ export default function JobVacancies() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Position Level</Label>
+                  <Select value={editFormState.positionLevel} onValueChange={(value) => setEditFormState((prev) => ({ ...prev, positionLevel: value as "first_level" | "second_level" }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="first_level">First Level Administrative Position</SelectItem>
+                      <SelectItem value="second_level">Second Level Administrative Position</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">

@@ -5,9 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createApplicant,
+  createApplication,
   fetchApplicants,
   fetchApplications,
   fetchJobs,
@@ -25,6 +27,8 @@ export default function Applicants() {
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [showCreateApp, setShowCreateApp] = useState(false);
+  const [selectedApplicantForApp, setSelectedApplicantForApp] = useState<string | null>(null);
   const [editingApplicantId, setEditingApplicantId] = useState<string | null>(null);
   const [formState, setFormState] = useState({
     fullName: "",
@@ -45,6 +49,10 @@ export default function Applicants() {
   const [documents, setDocuments] = useState<{ resume: File | null; transcript: File | null; certificate: File | null }>(
     { resume: null, transcript: null, certificate: null }
   );
+  const [appFormState, setAppFormState] = useState({
+    vacancyId: "",
+    dateApplied: new Date().toISOString().split("T")[0]
+  });
 
   const { data: applicants = [] } = useQuery({
     queryKey: ["applicants"],
@@ -119,7 +127,19 @@ export default function Applicants() {
       toast({ title: "Delete failed", description: (error as Error).message, variant: "destructive" });
     }
   });
-
+  const createAppMutation = useMutation({
+    mutationFn: createApplication,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["applications"] });
+      setShowCreateApp(false);
+      setSelectedApplicantForApp(null);
+      setAppFormState({ vacancyId: "", dateApplied: new Date().toISOString().split("T")[0] });
+      toast({ title: "Application added", description: "The applicant was added to application tracking." });
+    },
+    onError: (error) => {
+      toast({ title: "Save failed", description: (error as Error).message, variant: "destructive" });
+    }
+  });
   const filtered = useMemo(() => {
     return applicants.filter((a) =>
       a.fullName.toLowerCase().includes(search.toLowerCase()) ||
@@ -404,6 +424,16 @@ export default function Applicants() {
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => {
+                        setSelectedApplicantForApp(applicant.id);
+                        setShowCreateApp(true);
+                      }}
+                    >
+                      <Plus className="w-4 h-4 mr-1" /> Apply
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       className="text-destructive hover:text-destructive"
                       onClick={() => {
                         if (window.confirm(`Delete ${applicant.fullName}?`)) {
@@ -425,6 +455,56 @@ export default function Applicants() {
           );
         })}
       </div>
+
+      <Dialog
+        open={showCreateApp}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowCreateApp(false);
+            setSelectedApplicantForApp(null);
+            setAppFormState({ vacancyId: "", dateApplied: new Date().toISOString().split("T")[0] });
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader><DialogTitle>Add Job Application</DialogTitle></DialogHeader>
+          {selectedApplicantForApp && (
+            <form className="space-y-4" onSubmit={(e) => {
+              e.preventDefault();
+              if (!appFormState.vacancyId) return;
+              createAppMutation.mutate({
+                applicantId: selectedApplicantForApp,
+                vacancyId: appFormState.vacancyId,
+                dateApplied: appFormState.dateApplied
+              });
+            }}>
+              <div className="text-sm text-muted-foreground">
+                Applicant: <span className="font-medium text-foreground">{applicants.find(a => a.id === selectedApplicantForApp)?.fullName}</span>
+              </div>
+              <div className="space-y-2">
+                <Label>Job Vacancy</Label>
+                <Select value={appFormState.vacancyId} onValueChange={(value) => setAppFormState((prev) => ({ ...prev, vacancyId: value }))}>
+                  <SelectTrigger><SelectValue placeholder="Select a job vacancy" /></SelectTrigger>
+                  <SelectContent>
+                    {jobVacancies.filter(v => v.status === "Open").map((job) => (
+                      <SelectItem key={job.id} value={job.id}>{job.positionTitle}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Date Applied</Label>
+                <Input
+                  type="date"
+                  value={appFormState.dateApplied}
+                  onChange={(e) => setAppFormState((prev) => ({ ...prev, dateApplied: e.target.value }))}
+                />
+              </div>
+              <Button className="w-full" type="submit" disabled={createAppMutation.isPending}>Save Application</Button>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

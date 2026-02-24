@@ -21,6 +21,7 @@ export interface JobVacancy {
   postingDate: string;
   closingDate: string;
   status: "Open" | "Closed" | "Filled";
+  positionLevel?: "first_level" | "second_level";
 }
 
 export type ApplicationStatus =
@@ -65,8 +66,21 @@ export interface StatusHistory {
 export interface Evaluation {
   id: string;
   applicationId: string;
-  examScore: number;
-  interviewScore: number;
+  positionLevel: "first_level" | "second_level";
+  communicationSkills?: number;
+  abilityToPresent?: number;
+  alertness?: number;
+  judgement?: number;
+  emotionalStability?: number;
+  selfConfidence?: number;
+  firstLevelTotal?: number;
+  oralCommunication?: number;
+  analyticalAbility?: number;
+  initiative?: number;
+  stressTolerance?: number;
+  sensitivity?: number;
+  serviceOrientation?: number;
+  secondLevelTotal?: number;
   totalScore: number;
   remarks: string;
   evaluatedBy: string;

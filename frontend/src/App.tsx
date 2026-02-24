@@ -15,6 +15,7 @@ import Evaluations from "./pages/Evaluations";
 import Reports from "./pages/Reports";
 import UserManagement from "./pages/UserManagement";
 import AuditLogs from "./pages/AuditLogs";
+import ErrorPage from "./pages/ErrorPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,7 +40,8 @@ const App = () => (
               <Route path="/users" element={<UserManagement />} />
               <Route path="/audit-logs" element={<AuditLogs />} />
             </Route>
-            <Route path="*" element={<NotFound />} />
+            <Route path="/error/:code" element={<ErrorPage />} />
+            <Route path="*" element={<ErrorPage code={404} />} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>
