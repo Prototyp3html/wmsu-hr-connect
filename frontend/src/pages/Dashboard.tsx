@@ -23,6 +23,8 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterPositionLevel, setFilterPositionLevel] = useState("all");
+  const [filterMonth, setFilterMonth] = useState("all");
+  const [filterJobType, setFilterJobType] = useState("all");
   const [sortBy, setSortBy] = useState("date");
 
   const { data: applicants = [] } = useQuery({
@@ -54,9 +56,18 @@ export default function Dashboard() {
         const vacancy = jobVacancies.find((v) => v.id === app.vacancyId);
         if (vacancy && (vacancy as any).positionLevel !== filterPositionLevel) return false;
       }
+      if (filterMonth !== "all") {
+        const appDate = new Date(app.dateApplied);
+        const appMonthYear = `${appDate.getFullYear()}-${String(appDate.getMonth() + 1).padStart(2, "0")}`;
+        if (appMonthYear !== filterMonth) return false;
+      }
+      if (filterJobType !== "all") {
+        const vacancy = jobVacancies.find((v) => v.id === app.vacancyId);
+        if (vacancy && vacancy.positionTitle !== filterJobType) return false;
+      }
       return true;
     });
-  }, [applications, jobVacancies, filterStatus, filterPositionLevel]);
+  }, [applications, jobVacancies, filterStatus, filterPositionLevel, filterMonth, filterJobType]);
 
   // Top-rated applicants with evaluation scores
   const topRatedApplicants = useMemo(() => {
@@ -97,6 +108,26 @@ export default function Dashboard() {
 
     return { receivedCount, passingScreening, rejectedCount, passRate };
   }, [filteredApplications]);
+
+  // Extract unique months from applications
+  const availableMonths = useMemo(() => {
+    const monthsSet = new Set<string>();
+    applications.forEach((app) => {
+      const appDate = new Date(app.dateApplied);
+      const monthYear = `${appDate.getFullYear()}-${String(appDate.getMonth() + 1).padStart(2, "0")}`;
+      monthsSet.add(monthYear);
+    });
+    return Array.from(monthsSet).sort().reverse();
+  }, [applications]);
+
+  // Extract unique job types
+  const availableJobTypes = useMemo(() => {
+    const jobTypesSet = new Set<string>();
+    jobVacancies.forEach((job) => {
+      jobTypesSet.add(job.positionTitle);
+    });
+    return Array.from(jobTypesSet).sort();
+  }, [jobVacancies]);
 
   // Position level performance
   const positionLevelData = useMemo(() => {
@@ -179,8 +210,34 @@ export default function Dashboard() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-4 pb-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-2 block">Filter by Month</label>
+              <Select value={filterMonth} onValueChange={setFilterMonth}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Months</SelectItem>
+                  {availableMonths.map((month) => {
+                    const [year, monthNum] = month.split("-");
+                    const monthName = new Date(parseInt(year), parseInt(monthNum) - 1).toLocaleString("en-US", { month: "long", year: "numeric" });
+                    return <SelectItem key={month} value={month}>{monthName}</SelectItem>;
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-2 block">Filter by Job Type</label>
+              <Select value={filterJobType} onValueChange={setFilterJobType}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Job Types</SelectItem>
+                  {availableJobTypes.map((jobType) => (
+                    <SelectItem key={jobType} value={jobType}>{jobType}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <label className="text-xs font-medium text-muted-foreground mb-2 block">Filter by Status</label>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -192,7 +249,7 @@ export default function Dashboard() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex-1">
+            <div>
               <label className="text-xs font-medium text-muted-foreground mb-2 block">Filter by Position Level</label>
               <Select value={filterPositionLevel} onValueChange={setFilterPositionLevel}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -203,7 +260,7 @@ export default function Dashboard() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex-1">
+            <div>
               <label className="text-xs font-medium text-muted-foreground mb-2 block">Sort Top Applicants By</label>
               <Select value={sortBy} onValueChange={setSortBy}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
