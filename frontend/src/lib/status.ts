@@ -13,14 +13,14 @@ export const allStatuses: ApplicationStatus[] = [
 
 export function getStatusColor(status: ApplicationStatus): string {
   const colors: Record<ApplicationStatus, string> = {
-    "Application Received": "bg-info/10 text-info",
-    "Under Initial Screening": "bg-warning/10 text-warning",
-    "For Examination": "bg-chart-5/10 text-chart-5",
-    "For Interview": "bg-chart-6/10 text-chart-6",
-    "For Final Evaluation": "bg-primary/10 text-primary",
-    "Approved": "bg-success/10 text-success",
-    "Hired": "bg-success text-success-foreground",
-    "Rejected": "bg-destructive/10 text-destructive"
+    "Application Received": "bg-blue-100 text-blue-700",
+    "Under Initial Screening": "bg-amber-100 text-amber-700",
+    "For Examination": "bg-purple-100 text-purple-700",
+    "For Interview": "bg-cyan-100 text-cyan-700",
+    "For Final Evaluation": "bg-pink-100 text-pink-700",
+    "Approved": "bg-emerald-100 text-emerald-700",
+    "Hired": "bg-green-500 text-white",
+    "Rejected": "bg-red-100 text-red-700"
   };
   return colors[status];
 }
