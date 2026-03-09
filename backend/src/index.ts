@@ -60,6 +60,7 @@ interface AuthUser {
   name: string;
   email: string;
   role: string;
+  isActive: boolean;
 }
 
 interface AuthedRequest extends Request {
@@ -97,7 +98,7 @@ async function logAudit(req: Request, action: string, userId?: string, details?:
   });
 }
 
-function requireAuth(req: AuthedRequest, res: Response, next: NextFunction) {
+async function requireAuth(req: AuthedRequest, res: Response, next: NextFunction) {
   const auth = req.headers.authorization;
   if (!auth?.startsWith("Bearer ")) {
     res.status(401).json({ error: "Unauthorized" });
@@ -106,7 +107,12 @@ function requireAuth(req: AuthedRequest, res: Response, next: NextFunction) {
   try {
     const token = auth.slice("Bearer ".length);
     const payload = jwt.verify(token, JWT_SECRET) as AuthUser;
-    req.user = payload;
+    const row = await fetchOne<any>("SELECT id, name, email, role, is_active FROM users WHERE id = $1", [payload.id]);
+    if (!row || row.is_active === false) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    req.user = mapUser(row);
     next();
   } catch {
     res.status(401).json({ error: "Unauthorized" });
@@ -205,8 +211,20 @@ function mapUser(row: any) {
     id: row.id,
     name: row.name,
     email: row.email,
-    role: row.role
+    role: row.role,
+    isActive: row.is_active !== false
   };
+}
+
+async function countActiveAdmins(excludeUserId?: string) {
+  const params: unknown[] = [];
+  let sql = "SELECT COUNT(*)::int AS count FROM users WHERE role = 'admin' AND is_active = TRUE";
+  if (excludeUserId) {
+    params.push(excludeUserId);
+    sql += " AND id <> $1";
+  }
+  const row = await fetchOne<{ count: number }>(sql, params);
+  return row?.count ?? 0;
 }
 
 function mapDocument(row: any) {
@@ -256,6 +274,12 @@ app.post("/api/auth/login", authLimiter, asyncHandler(async (req, res) => {
     return;
   }
 
+  if (row.is_active === false) {
+    logAudit(req, "login_failed_inactive", row.id, { email });
+    res.status(403).json({ error: "Account is inactive. Contact your administrator." });
+    return;
+  }
+
   const isValid = bcrypt.compareSync(password, row.password_hash);
   if (!isValid) {
     logAudit(req, "login_failed", row.id, { email });
@@ -297,13 +321,14 @@ app.post("/api/auth/register", asyncHandler(async (req, res) => {
     id: randomUUID(),
     name,
     email,
-    role: role ?? "staff"
+    role: role ?? "staff",
+    isActive: true
   };
 
   const passwordHash = bcrypt.hashSync(password, 10);
   await query(
-    "INSERT INTO users (id, name, email, role, password_hash, created_at) VALUES ($1, $2, $3, $4, $5, $6)",
-    [user.id, user.name, user.email, user.role, passwordHash, new Date().toISOString()]
+    "INSERT INTO users (id, name, email, role, password_hash, is_active, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+    [user.id, user.name, user.email, user.role, passwordHash, user.isActive, new Date().toISOString()]
   );
 
   const token = createToken(user);
@@ -351,12 +376,12 @@ app.get("/api/audit-logs", requireAuth, requireAdmin, asyncHandler(async (req, r
   res.json(logs);
 }));
 
-app.get("/api/users", asyncHandler(async (_req, res) => {
-  const result = await query("SELECT id, name, email, role FROM users ORDER BY name");
+app.get("/api/users", requireAuth, requireAdmin, asyncHandler(async (_req, res) => {
+  const result = await query("SELECT id, name, email, role, is_active FROM users ORDER BY name");
   res.json(result.rows.map(mapUser));
 }));
 
-app.post("/api/users", requireAuth, asyncHandler(async (req: AuthedRequest, res) => {
+app.post("/api/users", requireAuth, requireAdmin, asyncHandler(async (req: AuthedRequest, res) => {
   const { name, email, password, role } = req.body as {
     name?: string;
     email?: string;
@@ -379,19 +404,22 @@ app.post("/api/users", requireAuth, asyncHandler(async (req: AuthedRequest, res)
     id: randomUUID(),
     name,
     email,
-    role: role ?? "staff"
+    role: role ?? "staff",
+    isActive: true
   };
 
   const passwordHash = bcrypt.hashSync(password, 10);
   await query(
-    "INSERT INTO users (id, name, email, role, password_hash, created_at) VALUES ($1, $2, $3, $4, $5, $6)",
-    [user.id, user.name, user.email, user.role, passwordHash, new Date().toISOString()]
+    "INSERT INTO users (id, name, email, role, password_hash, is_active, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+    [user.id, user.name, user.email, user.role, passwordHash, user.isActive, new Date().toISOString()]
   );
+
+  logAudit(req, "user_created", req.user?.id, { targetUserId: user.id, email: user.email, role: user.role });
 
   res.status(201).json(user);
 }));
 
-app.put("/api/users/:id", requireAuth, asyncHandler(async (req: AuthedRequest, res) => {
+app.put("/api/users/:id", requireAuth, requireAdmin, asyncHandler(async (req: AuthedRequest, res) => {
   const { name, email, role, password } = req.body as {
     name?: string;
     email?: string;
@@ -410,31 +438,127 @@ app.put("/api/users/:id", requireAuth, asyncHandler(async (req: AuthedRequest, r
     return;
   }
 
+  const current = await fetchOne<any>("SELECT id, role, is_active FROM users WHERE id = $1", [req.params.id]);
+  if (!current) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  if (current.role === "admin" && role !== "admin") {
+    const remainingActiveAdmins = await countActiveAdmins(req.params.id);
+    if (remainingActiveAdmins === 0) {
+      res.status(400).json({ error: "Cannot demote the last active admin." });
+      return;
+    }
+  }
+
   const passwordHash = password ? bcrypt.hashSync(password, 10) : null;
   const result = passwordHash
     ? await query(
-        "UPDATE users SET name=$2, email=$3, role=$4, password_hash=$5 WHERE id=$1 RETURNING id, name, email, role",
+        "UPDATE users SET name=$2, email=$3, role=$4, password_hash=$5 WHERE id=$1 RETURNING id, name, email, role, is_active",
         [req.params.id, name, email, role, passwordHash]
       )
     : await query(
-        "UPDATE users SET name=$2, email=$3, role=$4 WHERE id=$1 RETURNING id, name, email, role",
+        "UPDATE users SET name=$2, email=$3, role=$4 WHERE id=$1 RETURNING id, name, email, role, is_active",
         [req.params.id, name, email, role]
       );
+
+  logAudit(req, "user_updated", req.user?.id, {
+    targetUserId: req.params.id,
+    roleChanged: current.role !== role,
+    previousRole: current.role,
+    newRole: role,
+    passwordReset: Boolean(password)
+  });
+
+  res.json(mapUser(result.rows[0]));
+}));
+
+app.patch("/api/users/:id/status", requireAuth, requireAdmin, asyncHandler(async (req: AuthedRequest, res) => {
+  const { isActive } = req.body as { isActive?: boolean };
+  if (typeof isActive !== "boolean") {
+    res.status(400).json({ error: "isActive must be boolean" });
+    return;
+  }
+
+  const target = await fetchOne<any>("SELECT id, role FROM users WHERE id = $1", [req.params.id]);
+  if (!target) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  if (req.user?.id === req.params.id && !isActive) {
+    res.status(400).json({ error: "You cannot deactivate your own account." });
+    return;
+  }
+
+  if (target.role === "admin" && !isActive) {
+    const remainingActiveAdmins = await countActiveAdmins(req.params.id);
+    if (remainingActiveAdmins === 0) {
+      res.status(400).json({ error: "Cannot deactivate the last active admin." });
+      return;
+    }
+  }
+
+  const result = await query(
+    "UPDATE users SET is_active = $2 WHERE id = $1 RETURNING id, name, email, role, is_active",
+    [req.params.id, isActive]
+  );
+
+  logAudit(req, "user_status_changed", req.user?.id, {
+    targetUserId: req.params.id,
+    isActive
+  });
+
+  res.json(mapUser(result.rows[0]));
+}));
+
+app.post("/api/users/:id/reset-password", requireAuth, requireAdmin, asyncHandler(async (req: AuthedRequest, res) => {
+  const { newPassword } = req.body as { newPassword?: string };
+  if (!newPassword || newPassword.length < 6) {
+    res.status(400).json({ error: "newPassword is required (minimum 6 characters)." });
+    return;
+  }
+
+  const passwordHash = bcrypt.hashSync(newPassword, 10);
+  const result = await query("UPDATE users SET password_hash = $2 WHERE id = $1 RETURNING id", [req.params.id, passwordHash]);
 
   if (result.rowCount === 0) {
     res.status(404).json({ error: "User not found" });
     return;
   }
 
-  res.json(mapUser(result.rows[0]));
+  logAudit(req, "user_password_reset", req.user?.id, { targetUserId: req.params.id });
+  res.status(204).send();
 }));
 
-app.delete("/api/users/:id", requireAuth, asyncHandler(async (req, res) => {
+app.delete("/api/users/:id", requireAuth, requireAdmin, asyncHandler(async (req: AuthedRequest, res) => {
+  if (req.user?.id === req.params.id) {
+    res.status(400).json({ error: "You cannot delete your own account." });
+    return;
+  }
+
+  const target = await fetchOne<any>("SELECT id, role FROM users WHERE id = $1", [req.params.id]);
+  if (!target) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  if (target.role === "admin") {
+    const remainingActiveAdmins = await countActiveAdmins(req.params.id);
+    if (remainingActiveAdmins === 0) {
+      res.status(400).json({ error: "Cannot delete the last active admin." });
+      return;
+    }
+  }
+
   const result = await query("DELETE FROM users WHERE id = $1", [req.params.id]);
   if (result.rowCount === 0) {
     res.status(404).json({ error: "User not found" });
     return;
   }
+
+  logAudit(req, "user_deleted", req.user?.id, { targetUserId: req.params.id });
   res.status(204).send();
 }));
 
@@ -571,8 +695,20 @@ app.put("/api/applicants/:id", requireAuth, asyncHandler(async (req: AuthedReque
 }));
 
 app.delete("/api/applicants/:id", requireAuth, asyncHandler(async (req: AuthedRequest, res) => {
+  // Remove uploaded files linked to the applicant.
   const docs = await query("SELECT file_name FROM applicant_documents WHERE applicant_id = $1", [req.params.id]);
   docs.rows.forEach((doc) => removeFileSafe(doc.file_name));
+
+  // Delete dependent rows in child tables first to avoid FK violations.
+  await query(
+    "DELETE FROM evaluations WHERE application_id IN (SELECT id FROM applications WHERE applicant_id = $1)",
+    [req.params.id]
+  );
+  await query(
+    "DELETE FROM status_history WHERE application_id IN (SELECT id FROM applications WHERE applicant_id = $1)",
+    [req.params.id]
+  );
+  await query("DELETE FROM applications WHERE applicant_id = $1", [req.params.id]);
 
   const result = await query("DELETE FROM applicants WHERE id = $1", [req.params.id]);
   if (result.rowCount === 0) {

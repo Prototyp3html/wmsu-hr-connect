@@ -17,6 +17,35 @@ const actionLabels: Record<string, string> = {
   logout: "Logout"
 };
 
+function formatLoginSource(ip?: string) {
+  if (!ip) return "Unknown source";
+  const normalized = ip.trim().toLowerCase();
+  if (normalized === "::1" || normalized === "127.0.0.1" || normalized === "::ffff:127.0.0.1") {
+    return "This computer (local)";
+  }
+  return "Network device";
+}
+
+function formatDeviceBrowser(userAgent?: string) {
+  if (!userAgent) return "Unknown device/browser";
+
+  const ua = userAgent.toLowerCase();
+  let browser = "Browser";
+  if (ua.includes("edg/")) browser = "Edge";
+  else if (ua.includes("chrome/") && !ua.includes("edg/")) browser = "Chrome";
+  else if (ua.includes("firefox/")) browser = "Firefox";
+  else if (ua.includes("safari/") && !ua.includes("chrome/")) browser = "Safari";
+
+  let os = "Device";
+  if (ua.includes("windows")) os = "Windows";
+  else if (ua.includes("android")) os = "Android";
+  else if (ua.includes("iphone") || ua.includes("ipad") || ua.includes("ios")) os = "iOS";
+  else if (ua.includes("mac os") || ua.includes("macintosh")) os = "macOS";
+  else if (ua.includes("linux")) os = "Linux";
+
+  return `${browser} on ${os}`;
+}
+
 export default function AuditLogs() {
   const [search, setSearch] = useState("");
   const { data: logs = [], isLoading, error } = useQuery({
@@ -51,7 +80,7 @@ export default function AuditLogs() {
         <div className="relative w-full sm:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search by user, action, or IP"
+            placeholder="Search by user, action, or source"
             className="pl-9"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -84,8 +113,8 @@ export default function AuditLogs() {
                   <th className="pb-3 font-medium text-muted-foreground">Time</th>
                   <th className="pb-3 font-medium text-muted-foreground">User</th>
                   <th className="pb-3 font-medium text-muted-foreground">Action</th>
-                  <th className="pb-3 font-medium text-muted-foreground">IP</th>
-                  <th className="pb-3 font-medium text-muted-foreground">User Agent</th>
+                  <th className="pb-3 font-medium text-muted-foreground">Login Source</th>
+                  <th className="pb-3 font-medium text-muted-foreground">Device / Browser</th>
                 </tr>
               </thead>
               <tbody>
@@ -109,8 +138,12 @@ export default function AuditLogs() {
                           {actionLabels[log.action] ?? log.action}
                         </span>
                       </td>
-                      <td className="py-3 text-muted-foreground">{log.ip ?? "—"}</td>
-                      <td className="py-3 text-muted-foreground max-w-xs truncate">{log.userAgent ?? "—"}</td>
+                      <td className="py-3 text-muted-foreground" title={log.ip ?? ""}>
+                        {formatLoginSource(log.ip)}
+                      </td>
+                      <td className="py-3 text-muted-foreground max-w-xs truncate" title={log.userAgent ?? ""}>
+                        {formatDeviceBrowser(log.userAgent)}
+                      </td>
                     </tr>
                   );
                 })}

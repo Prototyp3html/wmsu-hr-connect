@@ -113,6 +113,20 @@ export async function deleteUser(id: string) {
   return apiFetch<void>(`/users/${id}`, { method: "DELETE" });
 }
 
+export async function setUserStatus(id: string, isActive: boolean) {
+  return apiFetch<User>(`/users/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ isActive })
+  });
+}
+
+export async function resetUserPassword(id: string, newPassword: string) {
+  return apiFetch<void>(`/users/${id}/reset-password`, {
+    method: "POST",
+    body: JSON.stringify({ newPassword })
+  });
+}
+
 export async function fetchDepartments() {
   return apiFetch<Department[]>("/departments");
 }

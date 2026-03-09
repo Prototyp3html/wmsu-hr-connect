@@ -144,7 +144,66 @@ export default function Reports() {
       }
 
       pdf.save(`wmsu-hr-report-${reportType}.pdf`);
-      toast({ title: "Success", description: "Report exported successfully!" });
+      toast({ title: "Success", description: "Report exported as PDF successfully!" });
+    } catch (error) {
+      toast({
+        title: "Export failed",
+        description: (error as Error).message,
+        variant: "destructive"
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportCsv = () => {
+    setIsExporting(true);
+    try {
+      let csvContent = "";
+      const timestamp = new Date().toLocaleString();
+      csvContent += `WMSU HR Report - ${reportType}\nGenerated: ${timestamp}\n\n`;
+
+      if (reportType === "per-position") {
+        csvContent += "Position Title,Total Applications,Hired,Rejected,In Review\n";
+        positionGroups.forEach(({ vacancy, apps }) => {
+          const hiredCount = apps.filter((a) => a.status === "Hired").length;
+          const rejectedCount = apps.filter((a) => a.status === "Rejected").length;
+          const inReviewCount = apps.filter((a) => a.status !== "Hired" && a.status !== "Rejected").length;
+          csvContent += `"${vacancy.positionTitle}",${apps.length},${hiredCount},${rejectedCount},${inReviewCount}\n`;
+        });
+      } else if (reportType === "hired") {
+        csvContent += "Applicant Name,Position,Date Applied\n";
+        hired.forEach((app) => {
+          csvContent += `"${getApplicantName(app.applicantId)}","${getVacancyTitle(app.vacancyId)}","${app.dateApplied}"\n`;
+        });
+      } else if (reportType === "rejected") {
+        csvContent += "Applicant Name,Position,Remarks\n";
+        rejected.forEach((app) => {
+          const escapedRemarks = (app.remarks ?? "").replace(/"/g, '""');
+          csvContent += `"${getApplicantName(app.applicantId)}","${getVacancyTitle(app.vacancyId)}","${escapedRemarks}"\n`;
+        });
+      } else if (reportType === "status") {
+        csvContent += "Status,Count,Percentage\n";
+        statusStats.forEach(({ status, count, percentage }) => {
+          csvContent += `"${status}",${count},${percentage}%\n`;
+        });
+      } else if (reportType === "summary") {
+        csvContent += "Month,Total Applications,Hired,Rejected\n";
+        monthlySummary.forEach((row) => {
+          csvContent += `"${row.month}",${row.applications},${row.hired},${row.rejected}\n`;
+        });
+      }
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `wmsu-hr-report-${reportType}.csv`);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast({ title: "Success", description: "Report exported as CSV successfully!" });
     } catch (error) {
       toast({
         title: "Export failed",
@@ -163,7 +222,7 @@ export default function Reports() {
           <h1 className="text-2xl font-bold font-display text-foreground">Reports</h1>
           <p className="text-sm text-muted-foreground mt-1">Generate and export hiring reports</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => setShowPreview(true)}>
             <Eye className="w-4 h-4 mr-1" /> Preview
           </Button>
@@ -171,7 +230,10 @@ export default function Reports() {
             <Printer className="w-4 h-4 mr-1" /> Print
           </Button>
           <Button variant="outline" size="sm" onClick={handleExportPdf} disabled={isExporting}>
-            <Download className="w-4 h-4 mr-1" /> {isExporting ? "Exporting..." : "Export PDF"}
+            <Download className="w-4 h-4 mr-1" /> {isExporting ? "Exporting..." : "PDF"}
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={isExporting}>
+            <Download className="w-4 h-4 mr-1" /> CSV
           </Button>
         </div>
       </div>

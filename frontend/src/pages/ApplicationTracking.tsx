@@ -12,12 +12,22 @@ import type { Application, ApplicationStatus } from "@/lib/types";
 import { Clock, MessageSquare, ArrowRight, Lightbulb } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+const nextStepHints: Partial<Record<ApplicationStatus, string>> = {
+  "Application Received": "Move to screening once documents are complete.",
+  "Under Initial Screening": "Advance after shortlist review.",
+  "For Examination": "Advance after exam is completed and checked.",
+  "For Interview": "Advance after panel interview.",
+  "For Final Evaluation": "Advance after final deliberation.",
+  "Approved": "Mark as Hired when appointment is confirmed."
+};
+
 export default function ApplicationTracking() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [filterStatus, setFilterStatus] = useState("all");
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [statusForm, setStatusForm] = useState<{ status: ApplicationStatus; remarks: string } | null>(null);
+  const [suggestedApp, setSuggestedApp] = useState<Application | null>(null);
 
   const { data: applications = [] } = useQuery({
     queryKey: ["applications"],
@@ -64,6 +74,16 @@ export default function ApplicationTracking() {
     );
   }, [applications, filterStatus]);
 
+  const applySuggestedStatus = (app: Application) => {
+    const nextStatus = getNextSuggestedStatus(app.status);
+    if (!nextStatus) return;
+    updateMutation.mutate({
+      id: app.id,
+      status: nextStatus,
+      remarks: `Advanced via suggested next step (${app.status} -> ${nextStatus}).`
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -103,23 +123,25 @@ export default function ApplicationTracking() {
                     <p className="text-sm text-muted-foreground">
                       Applied for <span className="font-medium text-foreground">{getVacancyTitle(app.vacancyId)}</span>
                     </p>
-                    <div className="flex flex-col gap-3 mt-2">
-                      <div className="flex items-center gap-3">
-                        <span className={`status-badge ${getStatusColor(app.status)}`}>{app.status}</span>
-                        <span className="text-xs text-muted-foreground">Applied: {app.dateApplied}</span>
-                      </div>
-                      {getNextSuggestedStatus(app.status) && (
-                        <div className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded text-sm">
-                          <Lightbulb className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                          <span className="text-blue-900">
-                            Next: <span className="font-semibold">{getNextSuggestedStatus(app.status)}</span>
-                          </span>
-                          <ArrowRight className="w-4 h-4 text-blue-600 ml-auto flex-shrink-0" />
-                        </div>
-                      )}
+                    <div className="flex items-center gap-3 mt-2">
+                      <span className={`status-badge ${getStatusColor(app.status)}`}>{app.status}</span>
+                      <span className="text-xs text-muted-foreground">Applied: {app.dateApplied}</span>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    {/* Suggested Next Step */}
+                    {getNextSuggestedStatus(app.status) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs border-blue-300 text-blue-800 hover:bg-blue-100 gap-1"
+                        onClick={() => setSuggestedApp(app)}
+                      >
+                        <Lightbulb className="w-3 h-3" />
+                        <span className="hidden sm:inline">Suggested</span>
+                      </Button>
+                    )}
+
                     {/* Update Status */}
                     <Dialog onOpenChange={(open) => {
                       if (open) {
@@ -129,7 +151,7 @@ export default function ApplicationTracking() {
                       }
                     }}>
                       <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="text-xs sm:text-sm">Update Status</Button>
+                        <Button variant="outline" size="sm" className="text-xs">Update Status</Button>
                       </DialogTrigger>
                       <DialogContent>
                         <DialogHeader><DialogTitle>Update Application Status</DialogTitle></DialogHeader>
@@ -184,35 +206,85 @@ export default function ApplicationTracking() {
                           <Clock className="w-4 h-4 sm:mr-1" /> <span className="hidden sm:inline">History</span>
                         </Button>
                       </DialogTrigger>
-                      <DialogContent>
+                      <DialogContent className="max-h-[80vh] flex flex-col">
                         <DialogHeader><DialogTitle>Status History</DialogTitle></DialogHeader>
-                        <div className="text-sm mb-4">
-                          <span className="font-medium">{getApplicantName(app.applicantId)}</span>
-                          <span className="text-muted-foreground"> — {getVacancyTitle(app.vacancyId)}</span>
-                        </div>
-                        {historyQuery.isLoading ? (
-                          <p className="text-sm text-muted-foreground">Loading history...</p>
-                        ) : historyQuery.data && historyQuery.data.length > 0 ? (
-                          <div className="relative pl-6 space-y-4">
-                            <div className="absolute left-2 top-1 bottom-1 w-0.5 bg-border" />
-                            {historyQuery.data.map((h) => (
-                              <div key={h.id} className="relative">
-                                <div className="absolute -left-[18px] top-1 w-3 h-3 rounded-full bg-primary border-2 border-card" />
-                                <div>
-                                  <span className={`status-badge ${getStatusColor(h.status)}`}>{h.status}</span>
-                                  <p className="text-xs text-muted-foreground mt-1">{h.updatedAt} — by {h.updatedBy}</p>
-                                  {h.remarks && (
-                                    <p className="text-xs mt-1 flex items-start gap-1">
-                                      <MessageSquare className="w-3 h-3 mt-0.5 text-muted-foreground" />
-                                      {h.remarks}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
+                        <div className="flex-1 overflow-y-auto">
+                          <div className="text-sm mb-4">
+                            <span className="font-medium">{getApplicantName(app.applicantId)}</span>
+                            <span className="text-muted-foreground"> — {getVacancyTitle(app.vacancyId)}</span>
                           </div>
-                        ) : (
-                          <p className="text-sm text-muted-foreground">No status history recorded yet.</p>
+                          {historyQuery.isLoading ? (
+                            <p className="text-sm text-muted-foreground">Loading history...</p>
+                          ) : historyQuery.data && historyQuery.data.length > 0 ? (
+                            <div className="relative pl-6 space-y-4">
+                              <div className="absolute left-2 top-1 bottom-1 w-0.5 bg-border" />
+                              {historyQuery.data.map((h) => (
+                                <div key={h.id} className="relative">
+                                  <div className="absolute -left-[18px] top-1 w-3 h-3 rounded-full bg-primary border-2 border-card" />
+                                  <div>
+                                    <span className={`status-badge ${getStatusColor(h.status)}`}>{h.status}</span>
+                                    <p className="text-xs text-muted-foreground mt-1">{h.updatedAt} — by {h.updatedBy}</p>
+                                    {h.remarks && (
+                                      <p className="text-xs mt-1 flex items-start gap-1">
+                                        <MessageSquare className="w-3 h-3 mt-0.5 text-muted-foreground" />
+                                        {h.remarks}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">No status history recorded yet.</p>
+                          )}
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+
+                    {/* Suggested Step Modal */}
+                    <Dialog open={suggestedApp?.id === app.id} onOpenChange={(open) => {
+                      if (!open) setSuggestedApp(null);
+                    }}>
+                      <DialogContent>
+                        <DialogHeader><DialogTitle>Suggested Next Step</DialogTitle></DialogHeader>
+                        {suggestedApp && (
+                          <div className="space-y-4">
+                            <div className="text-sm">
+                              <span className="text-muted-foreground">Applicant:</span>{" "}
+                              <span className="font-medium">{getApplicantName(suggestedApp.applicantId)}</span>
+                            </div>
+                            <div className="text-sm">
+                              <span className="text-muted-foreground">Current Status:</span>{" "}
+                              <span className={`status-badge ${getStatusColor(suggestedApp.status)}`}>{suggestedApp.status}</span>
+                            </div>
+                            <div className="bg-blue-50 border border-blue-200 rounded p-4">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Lightbulb className="w-5 h-5 text-blue-600" />
+                                <span className="font-semibold text-blue-900">Recommended Next Step</span>
+                              </div>
+                              <div className="text-sm text-blue-900 font-medium ml-7">{getNextSuggestedStatus(suggestedApp.status)}</div>
+                              <p className="text-xs text-blue-800 mt-2 ml-7">{nextStepHints[suggestedApp.status] ?? "Continue to the next workflow step."}</p>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                className="flex-1"
+                                variant="outline"
+                                onClick={() => setSuggestedApp(null)}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                className="flex-1 bg-blue-600 hover:bg-blue-700"
+                                onClick={() => {
+                                  applySuggestedStatus(suggestedApp);
+                                  setSuggestedApp(null);
+                                }}
+                                disabled={updateMutation.isPending}
+                              >
+                                Apply Step
+                              </Button>
+                            </div>
+                          </div>
                         )}
                       </DialogContent>
                     </Dialog>

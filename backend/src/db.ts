@@ -26,6 +26,7 @@ export async function initDb() {
       email TEXT NOT NULL UNIQUE,
       role TEXT NOT NULL,
       password_hash TEXT NOT NULL,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
       created_at TEXT NOT NULL
     );
 
@@ -132,6 +133,12 @@ export async function initDb() {
   `).catch(() => {
     // Ignore errors if column already exists
   });
+
+  // Add user activation flag for existing databases
+  await query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
+  `).catch(() => {});
 
   // Add position_level column to evaluations if it doesn't exist
   await query(`
