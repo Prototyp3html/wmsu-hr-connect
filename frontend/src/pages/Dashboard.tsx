@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchApplicants, fetchApplications, fetchJobs, fetchReportsSummary, fetchEvaluations } from "@/lib/api";
 import { allStatuses, getStatusColor } from "@/lib/status";
 import { Briefcase, Users, UserCheck, TrendingUp, Award } from "lucide-react";
-import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area } from "recharts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useMemo } from "react";
 
@@ -18,6 +18,25 @@ const pieColors = [
   "hsl(142, 71%, 35%)",
   "hsl(0, 84%, 60%)",
 ];
+
+function TrendTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ name?: string; value?: number; color?: string }>; label?: string }) {
+  if (!active || !payload || payload.length === 0) return null;
+
+  const applications = payload.find((item) => item.name === "Applications")?.value ?? 0;
+  const hired = payload.find((item) => item.name === "Hired")?.value ?? 0;
+
+  return (
+    <div className="rounded-lg border border-border bg-card/95 backdrop-blur-sm shadow-md px-3 py-2 text-xs space-y-1">
+      <p className="font-semibold text-foreground">{label}</p>
+      <p className="text-muted-foreground">
+        <span className="font-medium text-foreground">Applications:</span> {applications}
+      </p>
+      <p className="text-muted-foreground">
+        <span className="font-medium text-foreground">Hired:</span> {hired}
+      </p>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -210,20 +229,28 @@ export default function Dashboard() {
     { name: "Filled", value: jobVacancies.filter((v) => v.status === "Filled").length },
   ];
 
+  const totalVacancies = vacancyStatusData.reduce((sum, item) => sum + item.value, 0);
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold font-display text-foreground">Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Welcome back, {user?.name}. Here's an overview of the hiring pipeline.
-        </p>
+    <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 pb-6 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold font-display text-foreground">Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Welcome back, {user?.name}. Here's an overview of the hiring pipeline.
+          </p>
+        </div>
+        <div className="inline-flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-xs text-muted-foreground">
+          <span className="w-2 h-2 rounded-full bg-primary" />
+          <span>{filteredApplications.length} filtered application(s)</span>
+        </div>
       </div>
 
-      <Card>
+      <Card className="transition-all duration-200 ease-in-out hover:shadow-sm">
         <CardContent className="pt-4 pb-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-2 block">Filter by Month</label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">Filter by Month</label>
               <Select value={filterMonth} onValueChange={setFilterMonth}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -236,8 +263,8 @@ export default function Dashboard() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-2 block">Filter by Job Type</label>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">Filter by Job Type</label>
               <Select value={filterJobType} onValueChange={setFilterJobType}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -248,8 +275,8 @@ export default function Dashboard() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-2 block">Filter by Status</label>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">Filter by Status</label>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -260,8 +287,8 @@ export default function Dashboard() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-2 block">Filter by Position Level</label>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">Filter by Position Level</label>
               <Select value={filterPositionLevel} onValueChange={setFilterPositionLevel}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -271,18 +298,8 @@ export default function Dashboard() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-2 block">Sort Top Applicants By</label>
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="score">Highest Score</SelectItem>
-                  <SelectItem value="date">Latest</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          <div>
-              <label className="text-xs font-medium text-muted-foreground mb-2 block">Sort Top Applicants By</label>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">Sort Top Applicants</label>
               <Select value={sortBy} onValueChange={setSortBy}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -298,12 +315,12 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         <div className="xl:col-span-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
           {statCards.map((card) => (
-            <Card key={card.label} className="card-hover">
-              <CardContent className="pt-5 pb-4">
+            <Card key={card.label} className="h-full card-hover transition-all duration-200 ease-in-out hover:-translate-y-[2px] hover:shadow-md">
+              <CardContent className="pt-5 pb-4 h-full">
                 <div className="flex items-start justify-between">
-                  <div>
+                  <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">{card.label}</p>
-                    <p className="text-3xl font-bold mt-1 text-foreground">{card.value}</p>
+                    <p className="text-3xl font-bold text-foreground">{card.value}</p>
                   </div>
                   <div className={`${card.bg} p-2.5 rounded-lg`}>
                     <card.icon className={`w-5 h-5 ${card.color}`} />
@@ -314,35 +331,105 @@ export default function Dashboard() {
           ))}
         </div>
 
-        <Card className="xl:col-span-7">
+        <Card className="xl:col-span-7 card-hover transition-all duration-200 ease-in-out">
           <CardContent className="pt-5">
-            <h3 className="text-sm font-semibold mb-4 text-foreground">Hiring Trend</h3>
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={monthlyTrendData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 13%, 90%)" />
-                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                <Tooltip />
-                <Line type="monotone" dataKey="applications" name="Applications" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} />
-                <Line type="monotone" dataKey="hired" name="Hired" stroke="hsl(var(--success))" strokeWidth={2} dot={{ r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-foreground">Hiring Trend</h3>
+              <div className="flex items-center gap-3 text-xs">
+                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                  <span className="w-2.5 h-2.5 rounded-full bg-primary" /> Applications
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                  <span className="w-2.5 h-2.5 rounded-full bg-success" /> Hired
+                </span>
+              </div>
+            </div>
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <ResponsiveContainer width="100%" height={270}>
+                <LineChart data={monthlyTrendData} margin={{ top: 10, right: 12, left: 2, bottom: 6 }}>
+                  <defs>
+                    <linearGradient id="applicationsFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.14} />
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="hiredFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--success))" stopOpacity={0.12} />
+                      <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--foreground))" strokeOpacity={0.08} vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} tickLine={false} axisLine={false} width={28} />
+                  <Tooltip
+                    content={<TrendTooltip />}
+                    cursor={{ stroke: "hsl(var(--primary))", strokeOpacity: 0.18, strokeDasharray: "4 4" }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="applications"
+                    fill="url(#applicationsFill)"
+                    stroke="none"
+                    isAnimationActive
+                    animationDuration={1000}
+                    animationEasing="ease-in-out"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="hired"
+                    fill="url(#hiredFill)"
+                    stroke="none"
+                    isAnimationActive
+                    animationDuration={1000}
+                    animationEasing="ease-in-out"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="applications"
+                    name="Applications"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2.8}
+                    strokeOpacity={0.96}
+                    dot={false}
+                    activeDot={{ r: 6, strokeWidth: 2, stroke: "hsl(var(--card))" }}
+                    isAnimationActive
+                    animationDuration={1000}
+                    animationEasing="ease-in-out"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="hired"
+                    name="Hired"
+                    stroke="hsl(var(--success))"
+                    strokeWidth={2.8}
+                    strokeOpacity={0.78}
+                    dot={false}
+                    activeDot={{ r: 6, strokeWidth: 2, stroke: "hsl(var(--card))" }}
+                    isAnimationActive
+                    animationDuration={1000}
+                    animationEasing="ease-in-out"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        <Card className="xl:col-span-8">
+        <Card className="xl:col-span-8 card-hover transition-all duration-200 ease-in-out">
           <CardContent className="pt-5">
-            <h3 className="text-sm font-semibold mb-4 text-foreground">Recent Applications</h3>
-            <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-foreground">Recent Applications</h3>
+              <span className="text-xs text-muted-foreground">Showing latest 8 entries</span>
+            </div>
+            <div className="overflow-auto max-h-[340px] -mx-4 px-4 sm:mx-0 sm:px-0 rounded-md border">
               <table className="w-full text-sm min-w-[500px]">
-                <thead>
+                <thead className="sticky top-0 bg-card z-10">
                   <tr className="border-b text-left">
-                    <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap">Applicant</th>
-                    <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap">Position</th>
-                    <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap hidden sm:table-cell">Date Applied</th>
-                    <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap">Status</th>
+                    <th className="py-3 font-medium text-muted-foreground whitespace-nowrap">Applicant</th>
+                    <th className="py-3 font-medium text-muted-foreground whitespace-nowrap">Position</th>
+                    <th className="py-3 font-medium text-muted-foreground whitespace-nowrap hidden sm:table-cell">Date Applied</th>
+                    <th className="py-3 font-medium text-muted-foreground whitespace-nowrap">Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -350,12 +437,12 @@ export default function Dashboard() {
                     const applicant = applicants.find((a) => a.id === app.applicantId);
                     const vacancy = jobVacancies.find((v) => v.id === app.vacancyId);
                     return (
-                      <tr key={app.id} className="border-b last:border-0">
+                      <tr key={app.id} className="border-b last:border-0 hover:bg-accent/40 transition-all duration-200 ease-in-out">
                         <td className="py-3 font-medium text-foreground whitespace-nowrap">{applicant?.fullName}</td>
                         <td className="py-3 text-muted-foreground whitespace-nowrap max-w-[150px] truncate">{vacancy?.positionTitle}</td>
                         <td className="py-3 text-muted-foreground whitespace-nowrap hidden sm:table-cell">{app.dateApplied}</td>
                         <td className="py-3">
-                          <span className={`status-badge ${getStatusColor(app.status)} text-xs`}>{app.status}</span>
+                          <span className={`rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(app.status)}`}>{app.status}</span>
                         </td>
                       </tr>
                     );
@@ -366,22 +453,45 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="xl:col-span-4">
+        <Card className="xl:col-span-4 card-hover transition-all duration-200 ease-in-out">
           <CardContent className="pt-5">
             <h3 className="text-sm font-semibold mb-4 text-foreground">Job Summary</h3>
-            <ResponsiveContainer width="100%" height={230}>
-              <PieChart>
-                <Pie data={vacancyStatusData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={4} dataKey="value">
-                  {vacancyStatusData.map((_, idx) => (
-                    <Cell key={idx} fill={pieColors[idx]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            <div className="relative rounded-lg border bg-muted/20 p-2">
+              <ResponsiveContainer width="100%" height={230}>
+                <PieChart>
+                  <Pie
+                    data={vacancyStatusData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={64}
+                    outerRadius={92}
+                    paddingAngle={5}
+                    dataKey="value"
+                    stroke="hsl(var(--background))"
+                    strokeWidth={2}
+                  >
+                    {vacancyStatusData.map((_, idx) => (
+                      <Cell key={idx} fill={pieColors[idx]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: 10,
+                      border: "1px solid hsl(var(--border))",
+                      background: "hsl(var(--card))",
+                      boxShadow: "0 8px 20px hsl(var(--foreground) / 0.08)"
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <p className="text-xs text-muted-foreground">Total</p>
+                <p className="text-2xl font-bold text-foreground">{totalVacancies}</p>
+              </div>
+            </div>
             <div className="space-y-2 mt-2 text-sm">
               {vacancyStatusData.map((item, idx) => (
-                <div key={item.name} className="flex items-center justify-between">
+                <div key={item.name} className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-accent/40 transition-all duration-200 ease-in-out">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: pieColors[idx] }} />
                     <span>{item.name}</span>
@@ -395,12 +505,12 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        <Card className="xl:col-span-6">
+        <Card className="xl:col-span-6 card-hover transition-all duration-200 ease-in-out">
           <CardContent className="pt-5">
             <h3 className="text-sm font-semibold mb-4 text-foreground">Position Level Performance</h3>
             <div className="space-y-4">
               {positionLevelData.map((level) => (
-                <div key={level.name} className="border rounded p-3">
+                <div key={level.name} className="border rounded-lg p-3 transition-all duration-200 ease-in-out hover:bg-accent/30">
                   <div className="flex justify-between items-start mb-2">
                     <span className="font-medium text-sm text-foreground">{level.name}</span>
                     <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">{level.evaluated}/{level.total}</span>
@@ -421,7 +531,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="xl:col-span-6">
+        <Card className="xl:col-span-6 card-hover transition-all duration-200 ease-in-out">
           <CardContent className="pt-5">
             <h3 className="text-sm font-semibold mb-4 text-foreground flex items-center gap-2">
               <Award className="w-4 h-4" /> Top Rated Applicants
@@ -429,7 +539,7 @@ export default function Dashboard() {
             <div className="space-y-3">
               {topRatedApplicants.length > 0 ? (
                 topRatedApplicants.map((app) => (
-                  <div key={app.applicationId} className="border rounded p-3 hover:bg-accent/50 transition-colors">
+                  <div key={app.applicationId} className="border rounded-lg p-3 hover:bg-accent/40 transition-all duration-200 ease-in-out">
                     <div className="flex justify-between items-start mb-1">
                       <div>
                         <p className="font-medium text-sm text-foreground">{app.applicantName}</p>
@@ -437,7 +547,7 @@ export default function Dashboard() {
                       </div>
                       <span className="text-lg font-bold text-success">{app.score}</span>
                     </div>
-                    <span className={`status-badge ${getStatusColor(app.status)} text-xs`}>{app.status}</span>
+                    <span className={`rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(app.status)}`}>{app.status}</span>
                   </div>
                 ))
               ) : (
