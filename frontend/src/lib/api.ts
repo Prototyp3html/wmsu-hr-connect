@@ -131,6 +131,10 @@ export async function fetchDepartments() {
   return apiFetch<Department[]>("/departments");
 }
 
+export async function fetchPositionTitles() {
+  return apiFetch<string[]>("/position-titles");
+}
+
 export async function fetchJobs() {
   return apiFetch<JobVacancy[]>("/jobs");
 }

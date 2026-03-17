@@ -23,6 +23,24 @@ const TOKEN_EXPIRES_IN = (process.env.TOKEN_EXPIRES_IN ?? "7d") as SignOptions["
 const corsOrigins = (process.env.CORS_ORIGIN ?? "").split(",").map((origin) => origin.trim()).filter(Boolean);
 const trustProxy = process.env.TRUST_PROXY === "true";
 
+const DEFAULT_POSITION_TITLES = [
+  "Instructor III",
+  "Information Technology Officer I Repost",
+  "Attorney IV",
+  "Information Officer I",
+  "Administrative Aide VI (Clerk III)",
+  "Project Development Officer I",
+  "Internal Auditor I",
+  "Administrative Assistant III (Senior Bookkeeper)",
+  "Administrative Assistant III",
+  "SUC Vice President",
+  "Board Secretary V",
+  "Chief Administrative Officer",
+  "Administrative Aide VI",
+  "Administrative Assistant II",
+  "Administrative Officer I"
+];
+
 const app = express();
 app.set("trust proxy", trustProxy);
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -565,6 +583,18 @@ app.delete("/api/users/:id", requireAuth, requireAdmin, asyncHandler(async (req:
 app.get("/api/departments", asyncHandler(async (_req, res) => {
   const rows = await query("SELECT * FROM departments ORDER BY name");
   res.json(rows.rows);
+}));
+
+app.get("/api/position-titles", asyncHandler(async (_req, res) => {
+  const rows = await query<{ position_title: string }>(
+    "SELECT DISTINCT position_title FROM job_vacancies WHERE position_title IS NOT NULL ORDER BY position_title"
+  );
+  const dynamicTitles = rows.rows
+    .map((row) => row.position_title?.trim())
+    .filter((title): title is string => Boolean(title));
+  const merged = Array.from(new Set([...DEFAULT_POSITION_TITLES, ...dynamicTitles]))
+    .sort((a, b) => a.localeCompare(b));
+  res.json(merged);
 }));
 
 app.get("/api/jobs", asyncHandler(async (_req, res) => {

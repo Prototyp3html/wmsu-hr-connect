@@ -3,8 +3,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { fetchApplicants, fetchApplications, fetchJobs, fetchReportsSummary, fetchEvaluations } from "@/lib/api";
 import { allStatuses, getStatusColor } from "@/lib/status";
-import { Briefcase, Users, ClipboardList, UserCheck, TrendingUp, Award } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line } from "recharts";
+import { Briefcase, Users, UserCheck, TrendingUp, Award } from "lucide-react";
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useMemo } from "react";
 
@@ -187,10 +187,22 @@ export default function Dashboard() {
     },
   ];
 
-  const statusData = allStatuses.map((status) => ({
-    name: status.replace("Under ", "").replace("For ", ""),
-    count: filteredApplications.filter((a) => a.status === status).length,
-  }));
+  const monthlyTrendData = useMemo(() => {
+    const monthMap = new Map<string, { month: string; applications: number; hired: number }>();
+    filteredApplications.forEach((app) => {
+      const date = new Date(app.dateApplied);
+      if (Number.isNaN(date.getTime())) return;
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      const month = date.toLocaleString("en-US", { month: "short", year: "numeric" });
+      const current = monthMap.get(key) ?? { month, applications: 0, hired: 0 };
+      current.applications += 1;
+      if (app.status === "Hired") current.hired += 1;
+      monthMap.set(key, current);
+    });
+    return Array.from(monthMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([, value]) => value);
+  }, [filteredApplications]);
 
   const vacancyStatusData = [
     { name: "Open", value: jobVacancies.filter((v) => v.status === "Open").length },
@@ -207,10 +219,9 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardContent className="pt-4 pb-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-2 block">Filter by Month</label>
               <Select value={filterMonth} onValueChange={setFilterMonth}>
@@ -270,67 +281,121 @@ export default function Dashboard() {
                 </SelectContent>
               </Select>
             </div>
+          <div>
+              <label className="text-xs font-medium text-muted-foreground mb-2 block">Sort Top Applicants By</label>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="score">Highest Score</SelectItem>
+                  <SelectItem value="date">Latest</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map((card) => (
-          <Card key={card.label} className="card-hover">
-            <CardContent className="pt-5 pb-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">{card.label}</p>
-                  <p className="text-3xl font-bold mt-1 text-foreground">{card.value}</p>
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        <div className="xl:col-span-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {statCards.map((card) => (
+            <Card key={card.label} className="card-hover">
+              <CardContent className="pt-5 pb-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">{card.label}</p>
+                    <p className="text-3xl font-bold mt-1 text-foreground">{card.value}</p>
+                  </div>
+                  <div className={`${card.bg} p-2.5 rounded-lg`}>
+                    <card.icon className={`w-5 h-5 ${card.color}`} />
+                  </div>
                 </div>
-                <div className={`${card.bg} p-2.5 rounded-lg`}>
-                  <card.icon className={`w-5 h-5 ${card.color}`} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        <Card>
+        <Card className="xl:col-span-7">
           <CardContent className="pt-5">
-            <h3 className="text-sm font-semibold mb-4 text-foreground">Applicant Status Distribution</h3>
-            <ResponsiveContainer width="100%" height={220} className="sm:!h-[280px]">
-              <BarChart data={statusData}>
+            <h3 className="text-sm font-semibold mb-4 text-foreground">Hiring Trend</h3>
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={monthlyTrendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 13%, 90%)" />
-                <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={70} interval={0} />
-                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} width={30} />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
                 <Tooltip />
-                <Bar dataKey="count" fill="hsl(348, 83%, 40%)" radius={[4, 4, 0, 0]} />
-              </BarChart>
+                <Line type="monotone" dataKey="applications" name="Applications" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="hired" name="Hired" stroke="hsl(var(--success))" strokeWidth={2} dot={{ r: 3 }} />
+              </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
+      </div>
 
-        <Card>
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        <Card className="xl:col-span-8">
           <CardContent className="pt-5">
-            <h3 className="text-sm font-semibold mb-4 text-foreground">Vacancy Status</h3>
-            <ResponsiveContainer width="100%" height={220} className="sm:!h-[280px]">
+            <h3 className="text-sm font-semibold mb-4 text-foreground">Recent Applications</h3>
+            <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+              <table className="w-full text-sm min-w-[500px]">
+                <thead>
+                  <tr className="border-b text-left">
+                    <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap">Applicant</th>
+                    <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap">Position</th>
+                    <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap hidden sm:table-cell">Date Applied</th>
+                    <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredApplications.slice(0, 8).map((app) => {
+                    const applicant = applicants.find((a) => a.id === app.applicantId);
+                    const vacancy = jobVacancies.find((v) => v.id === app.vacancyId);
+                    return (
+                      <tr key={app.id} className="border-b last:border-0">
+                        <td className="py-3 font-medium text-foreground whitespace-nowrap">{applicant?.fullName}</td>
+                        <td className="py-3 text-muted-foreground whitespace-nowrap max-w-[150px] truncate">{vacancy?.positionTitle}</td>
+                        <td className="py-3 text-muted-foreground whitespace-nowrap hidden sm:table-cell">{app.dateApplied}</td>
+                        <td className="py-3">
+                          <span className={`status-badge ${getStatusColor(app.status)} text-xs`}>{app.status}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="xl:col-span-4">
+          <CardContent className="pt-5">
+            <h3 className="text-sm font-semibold mb-4 text-foreground">Job Summary</h3>
+            <ResponsiveContainer width="100%" height={230}>
               <PieChart>
-                <Pie data={vacancyStatusData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={4} dataKey="value" label className="sm:!innerRadius-[60px] sm:!outerRadius-[100px]">
+                <Pie data={vacancyStatusData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={4} dataKey="value">
                   {vacancyStatusData.map((_, idx) => (
                     <Cell key={idx} fill={pieColors[idx]} />
                   ))}
                 </Pie>
                 <Tooltip />
-                <Legend wrapperStyle={{ fontSize: '12px' }} />
               </PieChart>
             </ResponsiveContainer>
+            <div className="space-y-2 mt-2 text-sm">
+              {vacancyStatusData.map((item, idx) => (
+                <div key={item.name} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: pieColors[idx] }} />
+                    <span>{item.name}</span>
+                  </div>
+                  <span className="font-semibold text-foreground">{item.value}</span>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Position Level Performance & Top Rated Applicants */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        <Card className="xl:col-span-6">
           <CardContent className="pt-5">
             <h3 className="text-sm font-semibold mb-4 text-foreground">Position Level Performance</h3>
             <div className="space-y-4">
@@ -345,7 +410,7 @@ export default function Dashboard() {
                     <span className="text-sm font-bold text-foreground">{level.avgScore}</span>
                   </div>
                   <div className="mt-2 bg-secondary h-2 rounded overflow-hidden">
-                    <div 
+                    <div
                       className="bg-success h-full transition-all"
                       style={{ width: level.total > 0 ? `${(level.avgScore / 100) * 100}%` : "0%" }}
                     />
@@ -356,7 +421,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="xl:col-span-6">
           <CardContent className="pt-5">
             <h3 className="text-sm font-semibold mb-4 text-foreground flex items-center gap-2">
               <Award className="w-4 h-4" /> Top Rated Applicants
@@ -382,41 +447,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Recent Applications */}
-      <Card>
-        <CardContent className="pt-5">
-          <h3 className="text-sm font-semibold mb-4 text-foreground">Recent Applications</h3>
-          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-            <table className="w-full text-sm min-w-[500px]">
-              <thead>
-                <tr className="border-b text-left">
-                  <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap">Applicant</th>
-                  <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap">Position</th>
-                  <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap hidden sm:table-cell">Date Applied</th>
-                  <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredApplications.slice(0, 5).map((app) => {
-                  const applicant = applicants.find((a) => a.id === app.applicantId);
-                  const vacancy = jobVacancies.find((v) => v.id === app.vacancyId);
-                  return (
-                    <tr key={app.id} className="border-b last:border-0">
-                      <td className="py-3 font-medium text-foreground whitespace-nowrap">{applicant?.fullName}</td>
-                      <td className="py-3 text-muted-foreground whitespace-nowrap max-w-[150px] truncate">{vacancy?.positionTitle}</td>
-                      <td className="py-3 text-muted-foreground whitespace-nowrap hidden sm:table-cell">{app.dateApplied}</td>
-                      <td className="py-3">
-                        <span className={`status-badge ${getStatusColor(app.status)} text-xs`}>{app.status}</span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

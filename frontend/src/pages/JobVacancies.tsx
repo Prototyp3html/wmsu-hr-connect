@@ -7,13 +7,31 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createJob, fetchDepartments, fetchJobs, updateJob, deleteJob } from "@/lib/api";
+import { createJob, fetchDepartments, fetchJobs, fetchPositionTitles, updateJob, deleteJob } from "@/lib/api";
 import { getVacancyStatusColor } from "@/lib/status";
 import type { JobVacancy } from "@/lib/types";
 import { Plus, Search, Pencil, Eye, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+
+const TEST_SALARY_GRADE_BY_TITLE: Record<string, number> = {
+  "instructor iii": 14,
+  "information technology officer i repost": 19,
+  "attorney iv": 23,
+  "information officer i": 15,
+  "administrative aide vi (clerk iii)": 6,
+  "project development officer i": 15,
+  "internal auditor i": 19,
+  "administrative assistant iii (senior bookkeeper)": 9,
+  "administrative assistant iii": 9,
+  "suc vice president": 28,
+  "board secretary v": 24,
+  "chief administrative officer": 24,
+  "administrative aide vi": 6,
+  "administrative assistant ii": 8,
+  "administrative officer i": 10
+};
 
 export default function JobVacancies() {
   const { user } = useAuth();
@@ -56,6 +74,46 @@ export default function JobVacancies() {
     queryFn: fetchDepartments
   });
 
+  const { data: positionTitles = [] } = useQuery({
+    queryKey: ["position-titles"],
+    queryFn: fetchPositionTitles
+  });
+
+  const positionTitleOptions = useMemo(() => {
+    return Array.from(new Set([...positionTitles, ...jobVacancies.map((vacancy) => vacancy.positionTitle)]))
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+  }, [positionTitles, jobVacancies]);
+
+  const salaryGradeByTitle = useMemo(() => {
+    const map = new Map<string, number>(Object.entries(TEST_SALARY_GRADE_BY_TITLE));
+    for (const vacancy of jobVacancies) {
+      const key = vacancy.positionTitle.trim().toLowerCase();
+      if (key && Number.isFinite(vacancy.salaryGrade)) {
+        map.set(key, vacancy.salaryGrade);
+      }
+    }
+    return map;
+  }, [jobVacancies]);
+
+  const applyCreateTitle = (title: string) => {
+    const suggested = salaryGradeByTitle.get(title.trim().toLowerCase());
+    setFormState((prev) => ({
+      ...prev,
+      positionTitle: title,
+      salaryGrade: suggested ? String(suggested) : prev.salaryGrade
+    }));
+  };
+
+  const applyEditTitle = (title: string) => {
+    const suggested = salaryGradeByTitle.get(title.trim().toLowerCase());
+    setEditFormState((prev) => ({
+      ...prev,
+      positionTitle: title,
+      salaryGrade: suggested ? String(suggested) : prev.salaryGrade
+    }));
+  };
+
   const createMutation = useMutation({
     mutationFn: createJob,
     onSuccess: () => {
@@ -68,7 +126,8 @@ export default function JobVacancies() {
         qualifications: "",
         postingDate: "",
         closingDate: "",
-        status: "Open"
+        status: "Open",
+        positionLevel: "first_level"
       });
       toast({ title: "Vacancy created", description: "The job vacancy was added." });
     },
@@ -142,11 +201,12 @@ export default function JobVacancies() {
               }}>
                 <div className="space-y-2">
                   <Label>Position Title</Label>
-                  <Input
-                    placeholder="e.g., Instructor I"
-                    value={formState.positionTitle}
-                    onChange={(e) => setFormState((prev) => ({ ...prev, positionTitle: e.target.value }))}
-                  />
+                  <Select value={formState.positionTitle} onValueChange={applyCreateTitle}>
+                    <SelectTrigger><SelectValue placeholder="Select position title" /></SelectTrigger>
+                    <SelectContent>
+                      {positionTitleOptions.map((title) => <SelectItem key={title} value={title}>{title}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Department</Label>
@@ -246,11 +306,12 @@ export default function JobVacancies() {
               }}>
                 <div className="space-y-2">
                   <Label>Position Title</Label>
-                  <Input
-                    placeholder="e.g., Instructor I"
-                    value={editFormState.positionTitle}
-                    onChange={(e) => setEditFormState((prev) => ({ ...prev, positionTitle: e.target.value }))}
-                  />
+                  <Select value={editFormState.positionTitle} onValueChange={applyEditTitle}>
+                    <SelectTrigger><SelectValue placeholder="Select position title" /></SelectTrigger>
+                    <SelectContent>
+                      {positionTitleOptions.map((title) => <SelectItem key={title} value={title}>{title}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Department</Label>
@@ -408,7 +469,8 @@ export default function JobVacancies() {
                             qualifications: vacancy.qualifications,
                             postingDate: vacancy.postingDate,
                             closingDate: vacancy.closingDate,
-                            status: vacancy.status
+                            status: vacancy.status,
+                            positionLevel: vacancy.positionLevel ?? "first_level"
                           });
                           setShowEdit(true);
                         }}
