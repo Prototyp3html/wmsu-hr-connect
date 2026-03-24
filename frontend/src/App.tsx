@@ -15,6 +15,7 @@ import Evaluations from "./pages/Evaluations";
 import Reports from "./pages/Reports";
 import UserManagement from "./pages/UserManagement";
 import AuditLogs from "./pages/AuditLogs";
+import Archive from "./pages/Archive";
 import ErrorPage from "./pages/ErrorPage";
 import NotFound from "./pages/NotFound";
 
@@ -39,6 +40,7 @@ const App = () => (
               <Route path="/reports" element={<Reports />} />
               <Route path="/users" element={<UserManagement />} />
               <Route path="/audit-logs" element={<AuditLogs />} />
+              <Route path="/archive" element={<Archive />} />
             </Route>
             <Route path="/error/:code" element={<ErrorPage />} />
             <Route path="*" element={<ErrorPage code={404} />} />

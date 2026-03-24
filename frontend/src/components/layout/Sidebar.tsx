@@ -9,6 +9,7 @@ import {
   FileBarChart,
   Settings,
   Shield,
+  Archive,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -25,6 +26,7 @@ const navItems = [
   { to: "/reports", label: "Reports", icon: FileBarChart, roles: ["admin", "staff"] },
   { to: "/users", label: "User Management", icon: Settings, roles: ["admin"] },
   { to: "/audit-logs", label: "Audit Logs", icon: Shield, roles: ["admin"] },
+  { to: "/archive", label: "Archive", icon: Archive, roles: ["admin"] },
 ];
 
 type SidebarProps = {
