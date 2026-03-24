@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { randomUUID } from "node:crypto";
 import { query } from "./db.js";
 
 const departments = [
@@ -16,6 +17,8 @@ const users = [
   { id: "u1", email: "admin@wmsu.edu.ph", name: "Maria Santos", role: "admin" },
   { id: "u2", email: "hrstaff@wmsu.edu.ph", name: "Juan Dela Cruz", role: "staff" }
 ];
+
+const TEST_ACCOUNT_PASSWORD = "password123";
 
 const jobVacancies = [
   { id: "v1", positionTitle: "Instructor I", departmentId: "d1", salaryGrade: 12, qualifications: "Bachelor's degree in Engineering, LET passer preferred", postingDate: "2026-01-15", closingDate: "2026-02-28", status: "Open" },
@@ -69,7 +72,7 @@ export async function seedIfEmpty() {
   }
 
   const now = new Date().toISOString();
-  const passwordHash = bcrypt.hashSync("password123", 10);
+  const passwordHash = bcrypt.hashSync(TEST_ACCOUNT_PASSWORD, 10);
 
   for (const user of users) {
     await query(
@@ -146,17 +149,37 @@ export async function seedIfEmpty() {
 
   for (const evaluation of evaluations) {
     await query(
-      "INSERT INTO evaluations (id, application_id, exam_score, interview_score, total_score, remarks, evaluated_by, evaluated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+      "INSERT INTO evaluations (id, application_id, total_score, remarks, evaluated_by, evaluated_at) VALUES ($1, $2, $3, $4, $5, $6)",
       [
         evaluation.id,
         evaluation.applicationId,
-        evaluation.examScore,
-        evaluation.interviewScore,
         evaluation.totalScore,
         evaluation.remarks,
         evaluation.evaluatedBy,
         evaluation.evaluatedAt
       ]
+    );
+  }
+}
+
+export async function ensureTestAccounts() {
+  const now = new Date().toISOString();
+  const passwordHash = bcrypt.hashSync(TEST_ACCOUNT_PASSWORD, 10);
+
+  for (const user of users) {
+    const existing = await query<{ id: string }>("SELECT id FROM users WHERE email = $1", [user.email]);
+
+    if (existing.rowCount === 0) {
+      await query(
+        "INSERT INTO users (id, name, email, role, password_hash, is_active, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        [randomUUID(), user.name, user.email, user.role, passwordHash, true, now]
+      );
+      continue;
+    }
+
+    await query(
+      "UPDATE users SET name = $2, role = $3, password_hash = $4, is_active = TRUE WHERE email = $1",
+      [user.email, user.name, user.role, passwordHash]
     );
   }
 }

@@ -4,11 +4,11 @@ import { fetchMe, login as apiLogin, logout as apiLogout, setAuthToken, getAuthT
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
 }
 
-const AuthContext = createContext<AuthContextType>({ user: null, login: async () => false, logout: () => {} });
+const AuthContext = createContext<AuthContextType>({ user: null, login: async () => ({ ok: false }), logout: () => {} });
 
 export const useAuth = () => useContext(AuthContext);
 
@@ -34,9 +34,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { token, user: authedUser } = await apiLogin(email, password);
       setAuthToken(token);
       setUser(authedUser);
-      return true;
-    } catch {
-      return false;
+      return { ok: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Login failed";
+      return { ok: false, error: message };
     }
   };
 

@@ -19,10 +19,15 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (await login(email, password)) {
+    const result = await login(email, password);
+    if (result.ok) {
       toast({ title: "Welcome back!", description: "You have logged in successfully." });
     } else {
-      toast({ title: "Login failed", description: "Invalid email or password.", variant: "destructive" });
+      toast({
+        title: "Login failed",
+        description: result.error ?? "Invalid email or password.",
+        variant: "destructive"
+      });
     }
   };
 
