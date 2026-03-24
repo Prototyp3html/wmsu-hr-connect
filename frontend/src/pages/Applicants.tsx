@@ -6,6 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createApplicant,
@@ -18,18 +25,21 @@ import {
   uploadApplicantDocument
 } from "@/lib/api";
 import { getStatusColor } from "@/lib/status";
-import { Plus, Search, Eye, Mail, Phone, MapPin, GraduationCap, Briefcase, Upload, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Eye, Mail, Phone, MapPin, GraduationCap, Briefcase, Upload, Pencil, Trash2, Ellipsis } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Applicants() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [showView, setShowView] = useState(false);
   const [showCreateApp, setShowCreateApp] = useState(false);
   const [selectedApplicantForApp, setSelectedApplicantForApp] = useState<string | null>(null);
   const [editingApplicantId, setEditingApplicantId] = useState<string | null>(null);
+  const [viewingApplicantId, setViewingApplicantId] = useState<string | null>(null);
   const [formState, setFormState] = useState({
     fullName: "",
     contactNumber: "",
@@ -68,6 +78,26 @@ export default function Applicants() {
     queryKey: ["jobs"],
     queryFn: fetchJobs
   });
+
+  // Define helper function before using it in useMemo
+  const getApplicantApplications = (applicantId: string) =>
+    applications.filter((app) => app.applicantId === applicantId);
+
+  const filtered = useMemo(() => {
+    let result = applicants.filter((a) =>
+      a.fullName.toLowerCase().includes(search.toLowerCase()) ||
+      a.email.toLowerCase().includes(search.toLowerCase())
+    );
+
+    if (statusFilter && statusFilter !== "all") {
+      result = result.filter((a) => {
+        const apps = getApplicantApplications(a.id);
+        return apps.some((app) => app.status === statusFilter);
+      });
+    }
+
+    return result;
+  }, [applicants, applications, search, statusFilter]);
 
   const createMutation = useMutation({
     mutationFn: async (payload: typeof formState) => {
@@ -140,15 +170,6 @@ export default function Applicants() {
       toast({ title: "Save failed", description: (error as Error).message, variant: "destructive" });
     }
   });
-  const filtered = useMemo(() => {
-    return applicants.filter((a) =>
-      a.fullName.toLowerCase().includes(search.toLowerCase()) ||
-      a.email.toLowerCase().includes(search.toLowerCase())
-    );
-  }, [applicants, search]);
-
-  const getApplicantApplications = (applicantId: string) =>
-    applications.filter((app) => app.applicantId === applicantId);
 
   return (
     <div className="space-y-6">
@@ -331,130 +352,219 @@ export default function Applicants() {
         </Dialog>
       </div>
 
-      {/* Search */}
-      <Card>
-        <CardContent className="pt-4 pb-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="Search by name or email..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+      {/* Search and Filter */}
+      <Card className="border border-border/50 shadow-sm">
+        <CardContent className="pt-4 pb-4 space-y-4">
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-muted-foreground">Search Applicants</Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input placeholder="Search by name or email..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-muted-foreground">Filter by Application Status</Label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="Application Received">Application Received</SelectItem>
+                <SelectItem value="Under Initial Screening">Under Initial Screening</SelectItem>
+                <SelectItem value="For Examination">For Examination</SelectItem>
+                <SelectItem value="For Interview">For Interview</SelectItem>
+                <SelectItem value="For Final Evaluation">For Final Evaluation</SelectItem>
+                <SelectItem value="Approved">Approved</SelectItem>
+                <SelectItem value="Hired">Hired</SelectItem>
+                <SelectItem value="Rejected">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
 
-      {/* List */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {filtered.map((applicant) => {
-          const apps = getApplicantApplications(applicant.id);
-          return (
-            <Card key={applicant.id} className="card-hover">
-              <CardContent className="pt-5 pb-4">
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-3">
-                  <div className="min-w-0">
-                    <h3 className="font-semibold text-foreground truncate">{applicant.fullName}</h3>
-                    <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
-                      <Mail className="w-3 h-3 flex-shrink-0" /> <span className="truncate">{applicant.email}</span>
-                    </p>
-                  </div>
-                  <div className="flex gap-2 flex-shrink-0">
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          <Eye className="w-4 h-4 mr-1" /> View
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-lg">
-                        <DialogHeader><DialogTitle>{applicant.fullName}</DialogTitle></DialogHeader>
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Phone className="w-4 h-4 flex-shrink-0" /> <span className="truncate">{applicant.contactNumber}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Mail className="w-4 h-4 flex-shrink-0" /> <span className="truncate">{applicant.email}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-muted-foreground sm:col-span-2">
-                              <MapPin className="w-4 h-4 flex-shrink-0" /> <span className="truncate">{applicant.address}</span>
-                            </div>
-                          </div>
-                          <div className="text-sm space-y-2">
-                            <div className="flex items-start gap-2">
-                              <GraduationCap className="w-4 h-4 text-muted-foreground mt-0.5" />
-                              <div><p className="text-xs text-muted-foreground">Education</p><p>{applicant.educationalBackground}</p></div>
-                            </div>
-                            <div className="flex items-start gap-2">
-                              <Briefcase className="w-4 h-4 text-muted-foreground mt-0.5" />
-                              <div><p className="text-xs text-muted-foreground">Experience</p><p>{applicant.workExperience}</p></div>
-                            </div>
-                          </div>
-                          {apps.length > 0 && (
-                            <div>
-                              <p className="text-xs font-medium text-muted-foreground mb-2">Applications</p>
-                              {apps.map((app) => {
-                                const vac = jobVacancies.find((v) => v.id === app.vacancyId);
-                                return (
-                                  <div key={app.id} className="flex items-center justify-between py-2 border-b last:border-0">
-                                    <span className="text-sm">{vac?.positionTitle}</span>
-                                    <span className={`status-badge ${getStatusColor(app.status)}`}>{app.status}</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
+      {/* Table */}
+      <Card className="border border-border/50 shadow-sm overflow-hidden">
+        <CardContent className="pt-0 pb-0">
+          {filtered.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p className="text-sm font-medium">No applicants found</p>
+              <p className="text-xs mt-1">Try adjusting your search or filters</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-b border-border/70 bg-muted/40 hover:bg-muted/40">
+                    <TableHead className="h-12 px-4 text-xs font-semibold text-foreground lowercase tracking-wide">Name</TableHead>
+                    <TableHead className="h-12 px-4 text-xs font-semibold text-foreground lowercase tracking-wide">Email</TableHead>
+                    <TableHead className="h-12 px-4 text-xs font-semibold text-foreground lowercase tracking-wide">Contact</TableHead>
+                    <TableHead className="h-12 px-4 text-xs font-semibold text-foreground lowercase tracking-wide">Address</TableHead>
+                    <TableHead className="h-12 px-4 text-xs font-semibold text-foreground lowercase tracking-wide">Status</TableHead>
+                    <TableHead className="h-12 px-4 text-xs font-semibold text-right text-foreground lowercase tracking-wide">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((applicant, idx) => {
+                    const apps = getApplicantApplications(applicant.id);
+                    const latestApp = apps.length > 0 ? apps[0] : null;
+                    return (
+                      <TableRow
+                        key={applicant.id}
+                        className={`border-b border-border/20 h-12 transition-colors ${
+                          idx % 2 === 0 ? "bg-background hover:bg-muted/30" : "bg-muted/10 hover:bg-muted/20"
+                        }`}
+                      >
+                        <TableCell className="px-4 py-2 text-sm font-medium text-foreground truncate">
+                          {applicant.fullName}
+                        </TableCell>
+                        <TableCell className="px-4 py-2 text-sm text-muted-foreground truncate">
+                          {applicant.email}
+                        </TableCell>
+                        <TableCell className="px-4 py-2 text-sm text-muted-foreground">
+                          {applicant.contactNumber}
+                        </TableCell>
+                        <TableCell className="px-4 py-2 text-sm text-muted-foreground truncate">
+                          {applicant.address}
+                        </TableCell>
+                        <TableCell className="px-4 py-2">
+                          {latestApp ? (
+                            <span className={`status-badge text-xs ${getStatusColor(latestApp.status)}`}>
+                              {latestApp.status}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic">No app</span>
                           )}
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setEditingApplicantId(applicant.id);
-                        setEditFormState({
-                          fullName: applicant.fullName,
-                          contactNumber: applicant.contactNumber,
-                          email: applicant.email,
-                          address: applicant.address,
-                          educationalBackground: applicant.educationalBackground,
-                          workExperience: applicant.workExperience
-                        });
-                        setShowEdit(true);
-                      }}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedApplicantForApp(applicant.id);
-                        setShowCreateApp(true);
-                      }}
-                    >
-                      <Plus className="w-4 h-4 mr-1" /> Apply
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => {
-                        if (window.confirm(`Delete ${applicant.fullName}?`)) {
-                          deleteMutation.mutate(applicant.id);
-                        }
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                        </TableCell>
+                        <TableCell className="px-4 py-2 text-right">
+                          <div className="flex justify-end">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="Open actions menu">
+                                  <Ellipsis className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-40">
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setViewingApplicantId(applicant.id);
+                                    setShowView(true);
+                                  }}
+                                >
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  View
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setEditingApplicantId(applicant.id);
+                                    setEditFormState({
+                                      fullName: applicant.fullName,
+                                      contactNumber: applicant.contactNumber,
+                                      email: applicant.email,
+                                      address: applicant.address,
+                                      educationalBackground: applicant.educationalBackground,
+                                      workExperience: applicant.workExperience
+                                    });
+                                    setShowEdit(true);
+                                  }}
+                                >
+                                  <Pencil className="w-4 h-4 mr-2" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setSelectedApplicantForApp(applicant.id);
+                                    setShowCreateApp(true);
+                                  }}
+                                >
+                                  <Plus className="w-4 h-4 mr-2" />
+                                  Apply
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => {
+                                    if (window.confirm(`Delete ${applicant.fullName}?`)) {
+                                      deleteMutation.mutate(applicant.id);
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog
+        open={showView}
+        onOpenChange={(open) => {
+          setShowView(open);
+          if (!open) {
+            setViewingApplicantId(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          {viewingApplicantId && (() => {
+            const applicant = applicants.find((a) => a.id === viewingApplicantId);
+            if (!applicant) return null;
+            const apps = getApplicantApplications(applicant.id);
+            return (
+              <>
+                <DialogHeader><DialogTitle>{applicant.fullName}</DialogTitle></DialogHeader>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Phone className="w-4 h-4 flex-shrink-0" /> <span className="truncate">{applicant.contactNumber}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Mail className="w-4 h-4 flex-shrink-0" /> <span className="truncate">{applicant.email}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground sm:col-span-2">
+                      <MapPin className="w-4 h-4 flex-shrink-0" /> <span className="truncate">{applicant.address}</span>
+                    </div>
                   </div>
+                  <div className="text-sm space-y-2">
+                    <div className="flex items-start gap-2">
+                      <GraduationCap className="w-4 h-4 text-muted-foreground mt-0.5" />
+                      <div><p className="text-xs text-muted-foreground">Education</p><p>{applicant.educationalBackground}</p></div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Briefcase className="w-4 h-4 text-muted-foreground mt-0.5" />
+                      <div><p className="text-xs text-muted-foreground">Experience</p><p>{applicant.workExperience}</p></div>
+                    </div>
+                  </div>
+                  {apps.length > 0 && (
+                    <div className="border-t pt-3">
+                      <p className="text-xs font-medium text-muted-foreground mb-2">Applications ({apps.length})</p>
+                      {apps.map((app) => {
+                        const vac = jobVacancies.find((v) => v.id === app.vacancyId);
+                        return (
+                          <div key={app.id} className="flex items-center justify-between py-2 border-b last:border-0 text-sm">
+                            <span>{vac?.positionTitle}</span>
+                            <span className={`status-badge text-xs ${getStatusColor(app.status)}`}>{app.status}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {apps.map((app) => (
-                    <span key={app.id} className={`status-badge ${getStatusColor(app.status)}`}>{app.status}</span>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={showCreateApp}
