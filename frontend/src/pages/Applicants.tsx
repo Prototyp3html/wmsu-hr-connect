@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   DropdownMenu,
@@ -22,11 +24,159 @@ import {
   fetchJobs,
   updateApplicant,
   deleteApplicant,
-  uploadApplicantDocument
+  uploadApplicantDocument,
+  parseApplicantDocument
 } from "@/lib/api";
+import type { ParsedApplicantDraft } from "@/lib/types";
 import { getStatusColor } from "@/lib/status";
-import { Plus, Search, Eye, Mail, Phone, MapPin, GraduationCap, Briefcase, Upload, Pencil, Trash2, Ellipsis } from "lucide-react";
+import { Plus, Search, Eye, Mail, Phone, MapPin, GraduationCap, Briefcase, Upload, Pencil, Trash2, Ellipsis, Check, ChevronsUpDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+type NameParts = {
+  firstName: string;
+  middleName: string;
+  lastName: string;
+  extensionName: string;
+};
+
+type AddressParts = {
+  regionCode: string;
+  cityCode: string;
+  barangayCode: string;
+  streetAddress: string;
+};
+
+type RegionUnit = {
+  code: string;
+  name: string;
+};
+
+type LocalityUnit = {
+  code: string;
+  name: string;
+  type: "city" | "municipality";
+};
+
+type BarangayUnit = {
+  code: string;
+  name: string;
+};
+
+type SearchableOption = {
+  value: string;
+  label: string;
+};
+
+const PSGC_BASE_URL = "https://psgc.gitlab.io/api";
+
+function normalizeLocationText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function removeMatchedAddressPart(baseAddress: string, matchedPart?: string) {
+  if (!matchedPart) return baseAddress;
+  const escaped = matchedPart.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return baseAddress.replace(new RegExp(escaped, "ig"), "").replace(/\s{2,}/g, " ").replace(/^,|,$/g, "").trim();
+}
+
+function formatFullName(parts: NameParts) {
+  return [parts.firstName.trim(), parts.middleName.trim(), parts.lastName.trim(), parts.extensionName.trim()]
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function formatAddress(streetAddress: string, barangayName: string, cityName: string, regionName: string) {
+  return [streetAddress.trim(), barangayName.trim(), cityName.trim(), regionName.trim()].filter(Boolean).join(", ");
+}
+
+function splitFullName(fullName: string): NameParts {
+  const suffixes = new Set(["jr", "jr.", "sr", "sr.", "ii", "iii", "iv", "v"]);
+  const parts = fullName.trim().replace(/\s+/g, " ").split(" ").filter(Boolean);
+
+  if (parts.length === 0) {
+    return { firstName: "", middleName: "", lastName: "", extensionName: "" };
+  }
+
+  let extensionName = "";
+  const lastToken = parts[parts.length - 1]?.toLowerCase();
+  if (lastToken && suffixes.has(lastToken)) {
+    extensionName = parts.pop() ?? "";
+  }
+
+  const firstName = parts[0] ?? "";
+  const lastName = parts.length > 1 ? parts[parts.length - 1] : "";
+  const middleName = parts.length > 2 ? parts.slice(1, -1).join(" ") : "";
+
+  return {
+    firstName,
+    middleName,
+    lastName,
+    extensionName
+  };
+}
+
+function SearchableSelect({
+  value,
+  onValueChange,
+  options,
+  placeholder,
+  searchPlaceholder,
+  emptyMessage,
+  loadingMessage,
+  disabled = false
+}: {
+  value: string;
+  onValueChange: (value: string) => void;
+  options: SearchableOption[];
+  placeholder: string;
+  searchPlaceholder: string;
+  emptyMessage: string;
+  loadingMessage?: string;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const selectedOption = options.find((option) => option.value === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between" disabled={disabled}>
+          <span className="truncate text-left">{selectedOption?.label || placeholder}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent portalled={false} className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+        <Command>
+          <CommandInput placeholder={searchPlaceholder} />
+          <CommandList>
+            <CommandEmpty>{loadingMessage ?? emptyMessage}</CommandEmpty>
+            <CommandGroup>
+              {options.map((option) => (
+                <CommandItem
+                  key={option.value}
+                  value={option.label}
+                  onSelect={() => {
+                    onValueChange(option.value);
+                    setOpen(false);
+                  }}
+                >
+                  <Check className={value === option.value ? "mr-2 h-4 w-4 opacity-100" : "mr-2 h-4 w-4 opacity-0"} />
+                  {option.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export default function Applicants() {
   const { toast } = useToast();
@@ -48,6 +198,24 @@ export default function Applicants() {
     educationalBackground: "",
     workExperience: ""
   });
+  const [nameParts, setNameParts] = useState<NameParts>({
+    firstName: "",
+    middleName: "",
+    lastName: "",
+    extensionName: ""
+  });
+  const [addressParts, setAddressParts] = useState<AddressParts>({
+    regionCode: "",
+    cityCode: "",
+    barangayCode: "",
+    streetAddress: ""
+  });
+  const [regionUnits, setRegionUnits] = useState<RegionUnit[]>([]);
+  const [cityUnits, setCityUnits] = useState<LocalityUnit[]>([]);
+  const [barangayUnits, setBarangayUnits] = useState<BarangayUnit[]>([]);
+  const [isLoadingRegions, setIsLoadingRegions] = useState(false);
+  const [isLoadingCities, setIsLoadingCities] = useState(false);
+  const [isLoadingBarangays, setIsLoadingBarangays] = useState(false);
   const [editFormState, setEditFormState] = useState({
     fullName: "",
     contactNumber: "",
@@ -63,6 +231,7 @@ export default function Applicants() {
     vacancyId: "",
     dateApplied: new Date().toISOString().split("T")[0]
   });
+  const [isScanningResume, setIsScanningResume] = useState(false);
 
   const { data: applicants = [] } = useQuery({
     queryKey: ["applicants"],
@@ -78,6 +247,327 @@ export default function Applicants() {
     queryKey: ["jobs"],
     queryFn: fetchJobs
   });
+
+  const selectedRegionName = useMemo(
+    () => regionUnits.find((region) => region.code === addressParts.regionCode)?.name ?? "",
+    [regionUnits, addressParts.regionCode]
+  );
+
+  const selectedCity = useMemo(
+    () => cityUnits.find((city) => city.code === addressParts.cityCode),
+    [cityUnits, addressParts.cityCode]
+  );
+
+  const selectedCityName = selectedCity?.name ?? "";
+
+  const selectedBarangayName = useMemo(
+    () => barangayUnits.find((barangay) => barangay.code === addressParts.barangayCode)?.name ?? "",
+    [barangayUnits, addressParts.barangayCode]
+  );
+
+  const regionOptions = useMemo<SearchableOption[]>(
+    () =>
+      regionUnits
+        .map((region) => ({ value: region.code, label: region.name }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [regionUnits]
+  );
+
+  const cityOptions = useMemo<SearchableOption[]>(
+    () => cityUnits.map((city) => ({ value: city.code, label: city.name })),
+    [cityUnits]
+  );
+
+  const barangayOptions = useMemo<SearchableOption[]>(
+    () => barangayUnits.map((barangay) => ({ value: barangay.code, label: barangay.name })),
+    [barangayUnits]
+  );
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const loadRegions = async () => {
+      setIsLoadingRegions(true);
+      try {
+        const response = await fetch(`${PSGC_BASE_URL}/regions`);
+        const data = (await response.json()) as RegionUnit[];
+        if (!isCancelled) {
+          setRegionUnits(data);
+        }
+      } catch {
+        if (!isCancelled) {
+          toast({
+            title: "Address data unavailable",
+            description: "Unable to load Philippines region list right now.",
+            variant: "destructive"
+          });
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingRegions(false);
+        }
+      }
+    };
+
+    loadRegions();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [toast]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const loadLocalities = async () => {
+      if (!addressParts.regionCode) {
+        setCityUnits([]);
+        setBarangayUnits([]);
+        return;
+      }
+
+      setIsLoadingCities(true);
+      setBarangayUnits([]);
+
+      try {
+        const [citiesResponse, municipalitiesResponse] = await Promise.all([
+          fetch(`${PSGC_BASE_URL}/regions/${addressParts.regionCode}/cities`).then((response) =>
+            response.ok ? response.json() : []
+          ),
+          fetch(`${PSGC_BASE_URL}/regions/${addressParts.regionCode}/municipalities`).then((response) =>
+            response.ok ? response.json() : []
+          )
+        ]);
+
+        if (!isCancelled) {
+          const normalizedCities = (citiesResponse as Array<{ code: string; name: string }>).map((city) => ({
+            code: city.code,
+            name: city.name,
+            type: "city" as const
+          }));
+          const normalizedMunicipalities = (municipalitiesResponse as Array<{ code: string; name: string }>).map((municipality) => ({
+            code: municipality.code,
+            name: municipality.name,
+            type: "municipality" as const
+          }));
+
+          setCityUnits(
+            [...normalizedCities, ...normalizedMunicipalities].sort((a, b) => a.name.localeCompare(b.name))
+          );
+        }
+      } catch {
+        if (!isCancelled) {
+          toast({
+            title: "Address data unavailable",
+            description: "Unable to load cities and municipalities for the selected region.",
+            variant: "destructive"
+          });
+          setCityUnits([]);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingCities(false);
+        }
+      }
+    };
+
+    loadLocalities();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [addressParts.regionCode, toast]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const loadBarangays = async () => {
+      if (!selectedCity) {
+        setBarangayUnits([]);
+        return;
+      }
+
+      setIsLoadingBarangays(true);
+      try {
+        const endpoint = selectedCity.type === "city" ? "cities" : "municipalities";
+        const response = await fetch(`${PSGC_BASE_URL}/${endpoint}/${selectedCity.code}/barangays`);
+        const data = response.ok ? ((await response.json()) as BarangayUnit[]) : [];
+
+        if (!isCancelled) {
+          setBarangayUnits(data.sort((a, b) => a.name.localeCompare(b.name)));
+        }
+      } catch {
+        if (!isCancelled) {
+          toast({
+            title: "Address data unavailable",
+            description: "Unable to load barangays for the selected city/municipality.",
+            variant: "destructive"
+          });
+          setBarangayUnits([]);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingBarangays(false);
+        }
+      }
+    };
+
+    loadBarangays();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedCity, toast]);
+
+  const resetCreateForm = () => {
+    setFormState({
+      fullName: "",
+      contactNumber: "",
+      email: "",
+      address: "",
+      educationalBackground: "",
+      workExperience: ""
+    });
+    setNameParts({ firstName: "", middleName: "", lastName: "", extensionName: "" });
+    setAddressParts({ regionCode: "", cityCode: "", barangayCode: "", streetAddress: "" });
+    setCityUnits([]);
+    setBarangayUnits([]);
+    setDocuments({ resume: null, transcript: null, certificate: null });
+  };
+
+  const resolveParsedAddressToDropdowns = async (parsedAddress: string) => {
+    const normalizedAddress = normalizeLocationText(parsedAddress);
+    if (!normalizedAddress) return false;
+
+    const availableRegions =
+      regionUnits.length > 0
+        ? regionUnits
+        : ((await fetch(`${PSGC_BASE_URL}/regions`).then((response) => response.json())) as RegionUnit[]);
+
+    if (regionUnits.length === 0) {
+      setRegionUnits(availableRegions);
+    }
+
+    for (const region of availableRegions) {
+      const [citiesResponse, municipalitiesResponse] = await Promise.all([
+        fetch(`${PSGC_BASE_URL}/regions/${region.code}/cities`).then((response) => (response.ok ? response.json() : [])),
+        fetch(`${PSGC_BASE_URL}/regions/${region.code}/municipalities`).then((response) => (response.ok ? response.json() : []))
+      ]);
+
+      const localities: LocalityUnit[] = [
+        ...(citiesResponse as Array<{ code: string; name: string }>).map((city) => ({
+          code: city.code,
+          name: city.name,
+          type: "city" as const
+        })),
+        ...(municipalitiesResponse as Array<{ code: string; name: string }>).map((municipality) => ({
+          code: municipality.code,
+          name: municipality.name,
+          type: "municipality" as const
+        }))
+      ].sort((a, b) => b.name.length - a.name.length);
+
+      const matchedLocality = localities.find((locality) => {
+        const normalizedLocalityName = normalizeLocationText(locality.name);
+        return normalizedLocalityName.length > 0 && normalizedAddress.includes(normalizedLocalityName);
+      });
+
+      if (!matchedLocality) {
+        continue;
+      }
+
+      const endpoint = matchedLocality.type === "city" ? "cities" : "municipalities";
+      const barangays = (await fetch(`${PSGC_BASE_URL}/${endpoint}/${matchedLocality.code}/barangays`).then((response) =>
+        response.ok ? response.json() : []
+      )) as BarangayUnit[];
+
+      const matchedBarangay = barangays
+        .sort((a, b) => b.name.length - a.name.length)
+        .find((barangay) => normalizedAddress.includes(normalizeLocationText(barangay.name)));
+
+      let streetAddress = parsedAddress.trim();
+      streetAddress = removeMatchedAddressPart(streetAddress, region.name);
+      streetAddress = removeMatchedAddressPart(streetAddress, matchedLocality.name);
+      streetAddress = removeMatchedAddressPart(streetAddress, matchedBarangay?.name);
+      streetAddress = streetAddress.replace(/^[,\s-]+|[,\s-]+$/g, "").trim();
+
+      setCityUnits(localities.sort((a, b) => a.name.localeCompare(b.name)));
+      setBarangayUnits(barangays.sort((a, b) => a.name.localeCompare(b.name)));
+      setAddressParts({
+        regionCode: region.code,
+        cityCode: matchedLocality.code,
+        barangayCode: matchedBarangay?.code ?? "",
+        streetAddress
+      });
+
+      return true;
+    }
+
+    return false;
+  };
+
+  const applyParsedDraftToForm = (draft: ParsedApplicantDraft) => {
+    if (draft.fullName) {
+      setNameParts(splitFullName(draft.fullName));
+    }
+
+    setFormState((prev) => ({
+      ...prev,
+      contactNumber: draft.contactNumber || prev.contactNumber,
+      email: draft.email || prev.email,
+      educationalBackground: draft.educationalBackground || prev.educationalBackground,
+      workExperience: draft.workExperience || prev.workExperience
+    }));
+
+    if (draft.address) {
+      setAddressParts((prev) => ({
+        ...prev,
+        streetAddress: draft.address
+      }));
+    }
+  };
+
+  const handleScanResumeAutofill = async () => {
+    if (!documents.resume) {
+      toast({
+        title: "Resume required",
+        description: "Upload a resume first, then scan for autofill.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsScanningResume(true);
+    try {
+      const parsed = await parseApplicantDocument(documents.resume);
+      applyParsedDraftToForm(parsed);
+
+      if (parsed.address) {
+        const mapped = await resolveParsedAddressToDropdowns(parsed.address);
+        if (!mapped) {
+          setAddressParts((prev) => ({ ...prev, streetAddress: parsed.address }));
+          toast({
+            title: "Address partially parsed",
+            description: "Address text was captured, but please select region/city/barangay to complete it.",
+            variant: "destructive"
+          });
+        }
+      }
+
+      toast({
+        title: "Autofill ready",
+        description: "Parsed resume data has been applied. Review and edit before saving."
+      });
+    } catch (error) {
+      toast({
+        title: "Scan failed",
+        description: (error as Error).message,
+        variant: "destructive"
+      });
+    } finally {
+      setIsScanningResume(false);
+    }
+  };
 
   // Define helper function before using it in useMemo
   const getApplicantApplications = (applicantId: string) =>
@@ -118,15 +608,7 @@ export default function Applicants() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["applicants"] });
       setShowCreate(false);
-      setFormState({
-        fullName: "",
-        contactNumber: "",
-        email: "",
-        address: "",
-        educationalBackground: "",
-        workExperience: ""
-      });
-      setDocuments({ resume: null, transcript: null, certificate: null });
+      resetCreateForm();
       toast({ title: "Applicant added", description: "The applicant was saved." });
     },
     onError: (error) => {
@@ -182,26 +664,59 @@ export default function Applicants() {
           <DialogTrigger asChild>
             <Button><Plus className="w-4 h-4 mr-2" /> Add Applicant</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Add New Applicant</DialogTitle></DialogHeader>
             <form className="space-y-4" onSubmit={(e) => {
               e.preventDefault();
+
+              if (!nameParts.firstName.trim() || !nameParts.lastName.trim()) {
+                toast({ title: "Missing name fields", description: "First name and last name are required.", variant: "destructive" });
+                return;
+              }
+
+              const hasStructuredAddress = Boolean(addressParts.regionCode && addressParts.cityCode && addressParts.barangayCode);
+              const hasFallbackAddress = addressParts.streetAddress.trim().length > 0;
+
+              const fullName = formatFullName(nameParts);
+              const address = hasStructuredAddress
+                ? formatAddress(addressParts.streetAddress, selectedBarangayName, selectedCityName, selectedRegionName)
+                : (addressParts.streetAddress.trim() || "Address not provided");
+
               createMutation.mutate({
-                fullName: formState.fullName,
+                fullName,
                 contactNumber: formState.contactNumber,
                 email: formState.email,
-                address: formState.address,
+                address,
                 educationalBackground: formState.educationalBackground,
                 workExperience: formState.workExperience
               });
             }}>
               <div className="space-y-2">
-                <Label>Full Name</Label>
-                <Input
-                  placeholder="e.g., Juan Dela Cruz"
-                  value={formState.fullName}
-                  onChange={(e) => setFormState((prev) => ({ ...prev, fullName: e.target.value }))}
-                />
+                <Label>Name Details</Label>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <Input
+                    placeholder="First Name"
+                    value={nameParts.firstName}
+                    onChange={(e) => setNameParts((prev) => ({ ...prev, firstName: e.target.value }))}
+                    required
+                  />
+                  <Input
+                    placeholder="Middle Name"
+                    value={nameParts.middleName}
+                    onChange={(e) => setNameParts((prev) => ({ ...prev, middleName: e.target.value }))}
+                  />
+                  <Input
+                    placeholder="Last Name"
+                    value={nameParts.lastName}
+                    onChange={(e) => setNameParts((prev) => ({ ...prev, lastName: e.target.value }))}
+                    required
+                  />
+                  <Input
+                    placeholder="Ext. (Jr., Sr., III)"
+                    value={nameParts.extensionName}
+                    onChange={(e) => setNameParts((prev) => ({ ...prev, extensionName: e.target.value }))}
+                  />
+                </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -224,11 +739,60 @@ export default function Applicants() {
               </div>
               <div className="space-y-2">
                 <Label>Address</Label>
-                <Input
-                  placeholder="City, Province"
-                  value={formState.address}
-                  onChange={(e) => setFormState((prev) => ({ ...prev, address: e.target.value }))}
-                />
+                <div className="space-y-3">
+                  <SearchableSelect
+                    value={addressParts.regionCode}
+                    onValueChange={(regionCode) =>
+                      setAddressParts({
+                        regionCode,
+                        cityCode: "",
+                        barangayCode: "",
+                        streetAddress: ""
+                      })
+                    }
+                    options={regionOptions}
+                    placeholder="Select Region"
+                    searchPlaceholder="Search region..."
+                    emptyMessage="No region found"
+                    loadingMessage={isLoadingRegions ? "Loading regions..." : undefined}
+                  />
+                  {addressParts.regionCode ? (
+                    <SearchableSelect
+                      value={addressParts.cityCode}
+                      onValueChange={(cityCode) =>
+                        setAddressParts((prev) => ({
+                          ...prev,
+                          cityCode,
+                          barangayCode: "",
+                          streetAddress: ""
+                        }))
+                      }
+                      options={cityOptions}
+                      placeholder="Select City / Municipality"
+                      searchPlaceholder="Search city/municipality..."
+                      emptyMessage="No city/municipality found"
+                      loadingMessage={isLoadingCities ? "Loading cities/municipalities..." : undefined}
+                    />
+                  ) : null}
+                  {addressParts.cityCode ? (
+                    <SearchableSelect
+                      value={addressParts.barangayCode}
+                      onValueChange={(barangayCode) => setAddressParts((prev) => ({ ...prev, barangayCode }))}
+                      options={barangayOptions}
+                      placeholder="Select Barangay"
+                      searchPlaceholder="Search barangay..."
+                      emptyMessage="No barangay found"
+                      loadingMessage={isLoadingBarangays ? "Loading barangays..." : undefined}
+                    />
+                  ) : null}
+                  {addressParts.barangayCode || addressParts.streetAddress ? (
+                    <Input
+                      placeholder="Street / Purok / Sitio (Optional)"
+                      value={addressParts.streetAddress}
+                      onChange={(e) => setAddressParts((prev) => ({ ...prev, streetAddress: e.target.value }))}
+                    />
+                  ) : null}
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Educational Background</Label>
@@ -250,15 +814,15 @@ export default function Applicants() {
                 <Label>Upload Documents</Label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {[
-                    { id: "resume", label: "Resume" },
-                    { id: "transcript", label: "Transcript" },
-                    { id: "certificate", label: "Certificate" }
+                    { id: "resume", label: "Resume", accept: ".pdf,.docx,.txt" },
+                    { id: "transcript", label: "Transcript", accept: ".pdf,.doc,.docx,.jpg,.jpeg,.png" },
+                    { id: "certificate", label: "Certificate", accept: ".pdf,.doc,.docx,.jpg,.jpeg,.png" }
                   ].map((doc) => (
                     <div key={doc.id} className="space-y-2">
                       <input
                         id={doc.id}
                         type="file"
-                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        accept={doc.accept}
                         onChange={(e) => {
                           const file = e.target.files?.[0] ?? null;
                           setDocuments((prev) => ({ ...prev, [doc.id]: file }));
@@ -275,10 +839,28 @@ export default function Applicants() {
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-muted-foreground">Accepted: PDF, DOC, JPG</p>
+                <p className="text-xs text-muted-foreground">Scan supports: PDF, DOCX, TXT</p>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full"
+                  onClick={handleScanResumeAutofill}
+                  disabled={!documents.resume || isScanningResume}
+                >
+                  {isScanningResume ? "Scanning Resume..." : "Scan Resume & Autofill Fields"}
+                </Button>
               </div>
               <div className="flex justify-end gap-3">
-                <Button variant="outline" type="button" onClick={() => setShowCreate(false)}>Cancel</Button>
+                <Button
+                  variant="outline"
+                  type="button"
+                  onClick={() => {
+                    setShowCreate(false);
+                    resetCreateForm();
+                  }}
+                >
+                  Cancel
+                </Button>
                 <Button type="submit" disabled={createMutation.isPending}>Save Applicant</Button>
               </div>
             </form>

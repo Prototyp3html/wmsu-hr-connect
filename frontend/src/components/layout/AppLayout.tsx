@@ -23,8 +23,8 @@ export default function AppLayout() {
                 <img src="/wmsu-seal.png" alt="WMSU seal" className="w-6 h-6" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-foreground">WMSU HRMS</p>
-                <p className="text-[11px] text-muted-foreground">Hiring Monitoring System</p>
+                <p className="text-sm font-semibold text-foreground">WMSU HRMO</p>
+                <p className="text-[11px] text-muted-foreground">HR Management Office</p>
               </div>
             </div>
             <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>

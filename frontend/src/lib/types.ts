@@ -53,6 +53,10 @@ export interface Application {
   status: ApplicationStatus;
   dateApplied: string;
   remarks?: string;
+  documentsComplete?: boolean;
+  examScheduleDate?: string;
+  interviewScheduleDate?: string;
+  finalEvaluationDate?: string;
 }
 
 export interface StatusHistory {
@@ -98,6 +102,16 @@ export interface ApplicantDocument {
   size: number;
   uploadedAt: string;
   url: string;
+}
+
+export interface ParsedApplicantDraft {
+  fullName: string;
+  contactNumber: string;
+  email: string;
+  address: string;
+  educationalBackground: string;
+  workExperience: string;
+  rawTextLength: number;
 }
 
 export interface AuditLog {

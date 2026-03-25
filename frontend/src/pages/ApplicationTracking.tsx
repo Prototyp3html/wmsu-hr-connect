@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,7 +27,14 @@ export default function ApplicationTracking() {
   const queryClient = useQueryClient();
   const [filterStatus, setFilterStatus] = useState("all");
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
-  const [statusForm, setStatusForm] = useState<{ status: ApplicationStatus; remarks: string } | null>(null);
+  const [statusForm, setStatusForm] = useState<{
+    status: ApplicationStatus;
+    remarks: string;
+    documentsComplete: boolean;
+    examScheduleDate: string;
+    interviewScheduleDate: string;
+    finalEvaluationDate: string;
+  } | null>(null);
   const [suggestedApp, setSuggestedApp] = useState<Application | null>(null);
 
   const { data: applications = [] } = useQuery({
@@ -145,7 +153,14 @@ export default function ApplicationTracking() {
                     {/* Update Status */}
                     <Dialog onOpenChange={(open) => {
                       if (open) {
-                        setStatusForm({ status: app.status, remarks: "" });
+                        setStatusForm({
+                          status: app.status,
+                          remarks: "",
+                          documentsComplete: Boolean(app.documentsComplete),
+                          examScheduleDate: app.examScheduleDate ?? "",
+                          interviewScheduleDate: app.interviewScheduleDate ?? "",
+                          finalEvaluationDate: app.finalEvaluationDate ?? ""
+                        });
                       } else {
                         setStatusForm(null);
                       }
@@ -173,6 +188,49 @@ export default function ApplicationTracking() {
                               </SelectContent>
                             </Select>
                           </div>
+                          {statusForm?.status === "Under Initial Screening" && (
+                            <div className="space-y-2 rounded-md border p-3 bg-muted/30">
+                              <Label className="text-sm">Document Check</Label>
+                              <label className="flex items-center gap-2 text-sm">
+                                <input
+                                  type="checkbox"
+                                  checked={statusForm.documentsComplete}
+                                  onChange={(e) => setStatusForm((prev) => prev ? ({ ...prev, documentsComplete: e.target.checked }) : prev)}
+                                />
+                                All required documents are submitted and verified
+                              </label>
+                            </div>
+                          )}
+                          {statusForm?.status === "For Examination" && (
+                            <div className="space-y-2">
+                              <Label>Examination Date</Label>
+                              <Input
+                                type="date"
+                                value={statusForm.examScheduleDate}
+                                onChange={(e) => setStatusForm((prev) => prev ? ({ ...prev, examScheduleDate: e.target.value }) : prev)}
+                              />
+                            </div>
+                          )}
+                          {statusForm?.status === "For Interview" && (
+                            <div className="space-y-2">
+                              <Label>Interview Date</Label>
+                              <Input
+                                type="date"
+                                value={statusForm.interviewScheduleDate}
+                                onChange={(e) => setStatusForm((prev) => prev ? ({ ...prev, interviewScheduleDate: e.target.value }) : prev)}
+                              />
+                            </div>
+                          )}
+                          {statusForm?.status === "For Final Evaluation" && (
+                            <div className="space-y-2">
+                              <Label>Final Evaluation Date</Label>
+                              <Input
+                                type="date"
+                                value={statusForm.finalEvaluationDate}
+                                onChange={(e) => setStatusForm((prev) => prev ? ({ ...prev, finalEvaluationDate: e.target.value }) : prev)}
+                              />
+                            </div>
+                          )}
                           <div className="space-y-2">
                             <Label>Remarks</Label>
                             <Textarea
@@ -185,7 +243,33 @@ export default function ApplicationTracking() {
                             className="w-full"
                             onClick={() => {
                               if (!statusForm) return;
-                              updateMutation.mutate({ id: app.id, status: statusForm.status, remarks: statusForm.remarks });
+
+                              if (statusForm.status === "Under Initial Screening" && !statusForm.documentsComplete) {
+                                toast({ title: "Requirement missing", description: "Document verification must be checked first.", variant: "destructive" });
+                                return;
+                              }
+                              if (statusForm.status === "For Examination" && !statusForm.examScheduleDate) {
+                                toast({ title: "Requirement missing", description: "Please set examination date.", variant: "destructive" });
+                                return;
+                              }
+                              if (statusForm.status === "For Interview" && !statusForm.interviewScheduleDate) {
+                                toast({ title: "Requirement missing", description: "Please set interview date.", variant: "destructive" });
+                                return;
+                              }
+                              if (statusForm.status === "For Final Evaluation" && !statusForm.finalEvaluationDate) {
+                                toast({ title: "Requirement missing", description: "Please set final evaluation date.", variant: "destructive" });
+                                return;
+                              }
+
+                              updateMutation.mutate({
+                                id: app.id,
+                                status: statusForm.status,
+                                remarks: statusForm.remarks,
+                                documentsComplete: statusForm.documentsComplete,
+                                examScheduleDate: statusForm.examScheduleDate || undefined,
+                                interviewScheduleDate: statusForm.interviewScheduleDate || undefined,
+                                finalEvaluationDate: statusForm.finalEvaluationDate || undefined
+                              });
                             }}
                             disabled={updateMutation.isPending}
                           >

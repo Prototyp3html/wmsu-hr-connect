@@ -9,6 +9,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import multer from "multer";
+import mammoth from "mammoth";
+import { PDFParse } from "pdf-parse";
+import nodemailer from "nodemailer";
 import { initDb, query } from "./db.js";
 import { ensureTestAccounts, seedIfEmpty } from "./seed.js";
 import helmet from "helmet";
@@ -22,6 +25,7 @@ const JWT_SECRET: Secret = process.env.JWT_SECRET ?? "dev_secret";
 const TOKEN_EXPIRES_IN = (process.env.TOKEN_EXPIRES_IN ?? "7d") as SignOptions["expiresIn"];
 const corsOrigins = (process.env.CORS_ORIGIN ?? "").split(",").map((origin) => origin.trim()).filter(Boolean);
 const trustProxy = process.env.TRUST_PROXY === "true";
+const EMAIL_ENABLED = process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS;
 
 const DEFAULT_POSITION_TITLES = [
   "Instructor III",
@@ -68,6 +72,11 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
+  limits: { fileSize: 10 * 1024 * 1024 }
+});
+
+const parseUpload = multer({
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }
 });
 
@@ -183,8 +192,106 @@ function mapApplication(row: any) {
     vacancyId: row.vacancy_id,
     status: row.status,
     dateApplied: row.date_applied,
-    remarks: row.remarks ?? undefined
+    remarks: row.remarks ?? undefined,
+    documentsComplete: row.documents_complete ?? false,
+    examScheduleDate: row.exam_schedule_date ?? undefined,
+    interviewScheduleDate: row.interview_schedule_date ?? undefined,
+    finalEvaluationDate: row.final_evaluation_date ?? undefined
   };
+}
+
+const statusFlow = [
+  "Application Received",
+  "Under Initial Screening",
+  "For Examination",
+  "For Interview",
+  "For Final Evaluation",
+  "Approved",
+  "Hired"
+] as const;
+
+function canTransitionStatus(currentStatus: string, nextStatus: string) {
+  if (nextStatus === "Rejected") return true;
+  if (currentStatus === nextStatus) return true;
+
+  const currentIndex = statusFlow.indexOf(currentStatus as typeof statusFlow[number]);
+  const nextIndex = statusFlow.indexOf(nextStatus as typeof statusFlow[number]);
+
+  if (currentIndex === -1 || nextIndex === -1) return false;
+  return nextIndex === currentIndex + 1;
+}
+
+function getStatusEmailDescription(status: string, workflow: { examScheduleDate?: string; interviewScheduleDate?: string; finalEvaluationDate?: string }) {
+  switch (status) {
+    case "Application Received":
+      return "Your application has been received and recorded in our system.";
+    case "Under Initial Screening":
+      return "Your application is now under initial screening. Document verification is in progress.";
+    case "For Examination":
+      return workflow.examScheduleDate
+        ? `You are scheduled for examination on ${workflow.examScheduleDate}.`
+        : "You are now endorsed for examination. Schedule details will follow.";
+    case "For Interview":
+      return workflow.interviewScheduleDate
+        ? `You are scheduled for interview on ${workflow.interviewScheduleDate}.`
+        : "You are now endorsed for interview. Schedule details will follow.";
+    case "For Final Evaluation":
+      return workflow.finalEvaluationDate
+        ? `Your profile is set for final evaluation on ${workflow.finalEvaluationDate}.`
+        : "Your profile is now for final evaluation by the panel.";
+    case "Approved":
+      return "Congratulations! Your application has been approved.";
+    case "Hired":
+      return "Congratulations! You have been marked as hired.";
+    case "Rejected":
+      return "Thank you for your interest. Your application has not been selected at this stage.";
+    default:
+      return "Your application status has been updated.";
+  }
+}
+
+async function sendApplicationStatusEmail(payload: {
+  applicantEmail: string;
+  applicantName: string;
+  jobTitle: string;
+  status: string;
+  remarks?: string;
+  workflow: { examScheduleDate?: string; interviewScheduleDate?: string; finalEvaluationDate?: string };
+}) {
+  const description = getStatusEmailDescription(payload.status, payload.workflow);
+
+  if (!EMAIL_ENABLED) {
+    console.log(`[Email disabled] To: ${payload.applicantEmail} | Status: ${payload.status} | ${description}`);
+    return false;
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT ?? 587),
+    secure: process.env.SMTP_SECURE === "true",
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS
+    }
+  });
+
+  const html = `
+    <p>Dear ${payload.applicantName},</p>
+    <p>Your application for <strong>${payload.jobTitle}</strong> has been updated to:</p>
+    <p><strong>${payload.status}</strong></p>
+    <p>${description}</p>
+    ${payload.remarks ? `<p><strong>Remarks:</strong> ${payload.remarks}</p>` : ""}
+    <p>Thank you,<br/>WMSU HRMO</p>
+  `;
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM ?? process.env.SMTP_USER,
+    to: payload.applicantEmail,
+    subject: `Application Status Update: ${payload.status}`,
+    html
+  });
+
+  return true;
 }
 
 function mapHistory(row: any) {
@@ -196,6 +303,159 @@ function mapHistory(row: any) {
     updatedBy: row.updated_by,
     updatedAt: row.updated_at
   };
+}
+
+type ParsedApplicantDraft = {
+  fullName: string;
+  contactNumber: string;
+  email: string;
+  address: string;
+  educationalBackground: string;
+  workExperience: string;
+  rawTextLength: number;
+};
+
+function cleanupExtractedText(value: string) {
+  return value
+    .replace(/\r/g, "")
+    .replace(/\t/g, " ")
+    .replace(/(?<!\n)(Name Details|Contact Number|Phone|Mobile|Email|Address|Location|Educational Background|Education|Work Experience|Experience)\b/gi, "\n$1")
+    .replace(/[ ]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function extractLabeledValue(text: string, labels: string[], stopLabels: string[] = []) {
+  const labelPart = labels.map((label) => label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+  const stopPart = stopLabels.length
+    ? stopLabels.map((label) => label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")
+    : "";
+
+  const regex = stopPart
+    ? new RegExp(`(?:${labelPart})\\s*[:\\-]?\\s*(.+?)(?=\\b(?:${stopPart})\\b|$)`, "is")
+    : new RegExp(`(?:${labelPart})\\s*[:\\-]?\\s*(.+)`, "i");
+
+  return (text.match(regex)?.[1] ?? "").trim();
+}
+
+function normalizeEmailCandidate(value: string) {
+  const cleaned = value.replace(/[\s;|]+/g, " ").trim();
+  const trimmedByKeywords = cleaned.split(/\b(phone|mobile|contact|address|location)\b/i)[0]?.trim() ?? "";
+  const strictMatch = trimmedByKeywords.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,10}/i);
+  return strictMatch?.[0] ?? "";
+}
+
+function pickNameCandidate(lines: string[]) {
+  const excluded = /resume|curriculum vitae|profile|contact|email|phone|address|education|experience|objective|summary/i;
+  return (
+    lines.find((line) => {
+      const clean = line.trim();
+      if (!clean || clean.length < 5 || clean.length > 60) return false;
+      if (excluded.test(clean)) return false;
+      if (/\d/.test(clean)) return false;
+      const words = clean.split(/\s+/).filter(Boolean);
+      if (words.length < 2 || words.length > 5) return false;
+      return words.every((word) => /^[A-Za-z.'-]+$/.test(word));
+    }) ?? ""
+  );
+}
+
+function pickSection(text: string, headings: string[]) {
+  const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
+  const headingRegex = new RegExp(`^(${headings.join("|")})\\b`, "i");
+  const nextHeadingRegex = /^(objective|summary|education|educational background|experience|work experience|employment history|skills|certifications|references|projects|training|seminars?)\b/i;
+  const startIndex = lines.findIndex((line) => headingRegex.test(line));
+  if (startIndex === -1) return "";
+
+  const collected: string[] = [];
+  for (let index = startIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (nextHeadingRegex.test(line)) {
+      break;
+    }
+    collected.push(line);
+    if (collected.length >= 6) {
+      break;
+    }
+  }
+
+  return collected.join("; ").slice(0, 500);
+}
+
+function pickAddressCandidate(lines: string[]) {
+  const ignored = /education|experience|skill|reference|email|phone|mobile|contact|objective|summary/i;
+  const addressHints = /barangay|brgy|city|municipality|province|region|street|st\.?|avenue|ave\.?|road|rd\.?|purok|sitio/i;
+
+  return (
+    lines.find((line) => {
+      const clean = line.trim();
+      if (!clean || clean.length < 6 || clean.length > 180) return false;
+      if (ignored.test(clean)) return false;
+      if (/@/.test(clean)) return false;
+      return addressHints.test(clean);
+    }) ?? ""
+  );
+}
+
+function extractEmailFromText(text: string) {
+  const directMatch = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,10}/i)?.[0];
+  if (directMatch) return directMatch;
+
+  const compact = text.replace(/\s+/g, "");
+  const compactMatch = compact.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,10}/i)?.[0];
+  if (compactMatch) return compactMatch;
+
+  return "";
+}
+
+function parseApplicantDraftFromText(rawText: string): ParsedApplicantDraft {
+  const text = cleanupExtractedText(rawText);
+  const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
+
+  const labeledEmail = extractLabeledValue(text, ["email", "e-mail"], ["phone", "mobile", "contact", "address", "education", "experience"]);
+  const emailMatch = normalizeEmailCandidate(labeledEmail) || extractEmailFromText(text);
+  const phoneMatch = text.match(/(?:\+63|0)\s?9\d{2}[\s-]?\d{3}[\s-]?\d{4}/);
+  const addressMatch = extractLabeledValue(
+    text,
+    ["address", "location"],
+    ["education", "educational background", "experience", "work experience", "skills", "references"]
+  );
+
+  const educationalBackground = pickSection(text, ["education", "educational background", "academic background"]);
+  const workExperience = pickSection(text, ["work experience", "experience", "employment history"]);
+
+  return {
+    fullName: pickNameCandidate(lines).slice(0, 120),
+    contactNumber: (phoneMatch?.[0] ?? "").replace(/\s|-/g, "").slice(0, 20),
+    email: emailMatch.slice(0, 120),
+    address: (addressMatch || pickAddressCandidate(lines)).slice(0, 200),
+    educationalBackground,
+    workExperience,
+    rawTextLength: text.length
+  };
+}
+
+async function extractTextFromUploadedDocument(file: Express.Multer.File) {
+  const extension = path.extname(file.originalname).toLowerCase();
+  const mime = file.mimetype.toLowerCase();
+
+  if (extension === ".txt" || mime.includes("text/plain")) {
+    return file.buffer.toString("utf8");
+  }
+
+  if (extension === ".docx" || mime.includes("officedocument.wordprocessingml.document")) {
+    const result = await mammoth.extractRawText({ buffer: file.buffer });
+    return result.value;
+  }
+
+  if (extension === ".pdf" || mime.includes("pdf")) {
+    const parser = new PDFParse({ data: file.buffer });
+    const parsed = await parser.getText();
+    await parser.destroy();
+    return parsed.text;
+  }
+
+  throw new Error("Unsupported file type. Please upload PDF, DOCX, or TXT.");
 }
 
 function mapEvaluation(row: any) {
@@ -676,6 +936,21 @@ app.get("/api/applicants/:id", asyncHandler(async (req, res) => {
   res.json(mapApplicant(row));
 }));
 
+app.post("/api/applicants/parse-document", requireAuth, parseUpload.single("file"), asyncHandler(async (req: AuthedRequest, res) => {
+  if (!req.file) {
+    res.status(400).json({ error: "Document file is required" });
+    return;
+  }
+
+  try {
+    const text = await extractTextFromUploadedDocument(req.file);
+    const parsed = parseApplicantDraftFromText(text);
+    res.json(parsed);
+  } catch (error) {
+    res.status(400).json({ error: (error as Error).message || "Unable to parse document" });
+  }
+}));
+
 app.post("/api/applicants", requireAuth, asyncHandler(async (req: AuthedRequest, res) => {
   const { fullName, contactNumber, email, address, educationalBackground, workExperience } = req.body as any;
   if (!fullName || !contactNumber || !email || !address || !educationalBackground || !workExperience) {
@@ -842,15 +1117,74 @@ app.delete("/api/applications/:id", requireAuth, asyncHandler(async (req: Authed
 }));
 
 app.patch("/api/applications/:id/status", requireAuth, asyncHandler(async (req: AuthedRequest, res) => {
-  const { status, remarks } = req.body as { status?: string; remarks?: string };
+  const {
+    status,
+    remarks,
+    documentsComplete,
+    examScheduleDate,
+    interviewScheduleDate,
+    finalEvaluationDate
+  } = req.body as {
+    status?: string;
+    remarks?: string;
+    documentsComplete?: boolean;
+    examScheduleDate?: string;
+    interviewScheduleDate?: string;
+    finalEvaluationDate?: string;
+  };
+
   if (!status) {
     res.status(400).json({ error: "Status is required" });
     return;
   }
 
+  const existing = await fetchOne<any>("SELECT * FROM applications WHERE id = $1", [req.params.id]);
+  if (!existing) {
+    res.status(404).json({ error: "Application not found" });
+    return;
+  }
+
+  if (!canTransitionStatus(existing.status, status)) {
+    res.status(400).json({ error: `Invalid status transition from ${existing.status} to ${status}` });
+    return;
+  }
+
+  if (status === "Under Initial Screening" && documentsComplete !== true) {
+    res.status(400).json({ error: "Complete document check is required before initial screening." });
+    return;
+  }
+
+  if (status === "For Examination" && !examScheduleDate) {
+    res.status(400).json({ error: "Examination schedule date is required." });
+    return;
+  }
+
+  if (status === "For Interview" && !interviewScheduleDate) {
+    res.status(400).json({ error: "Interview schedule date is required." });
+    return;
+  }
+
+  if (status === "For Final Evaluation" && !finalEvaluationDate) {
+    res.status(400).json({ error: "Final evaluation date is required." });
+    return;
+  }
+
+  const updatedDocumentsComplete = documentsComplete ?? existing.documents_complete ?? false;
+  const updatedExamDate = examScheduleDate ?? existing.exam_schedule_date ?? null;
+  const updatedInterviewDate = interviewScheduleDate ?? existing.interview_schedule_date ?? null;
+  const updatedFinalEvalDate = finalEvaluationDate ?? existing.final_evaluation_date ?? null;
+
   const result = await query(
-    "UPDATE applications SET status=$2, remarks=$3 WHERE id=$1 RETURNING *",
-    [req.params.id, status, remarks ?? null]
+    "UPDATE applications SET status=$2, remarks=$3, documents_complete=$4, exam_schedule_date=$5, interview_schedule_date=$6, final_evaluation_date=$7 WHERE id=$1 RETURNING *",
+    [
+      req.params.id,
+      status,
+      remarks ?? null,
+      updatedDocumentsComplete,
+      updatedExamDate,
+      updatedInterviewDate,
+      updatedFinalEvalDate
+    ]
   );
 
   if (result.rowCount === 0) {
@@ -872,7 +1206,36 @@ app.patch("/api/applications/:id/status", requireAuth, asyncHandler(async (req: 
     [history.id, history.applicationId, history.status, history.remarks, history.updatedBy, history.updatedAt]
   );
 
-  res.json({ application: mapApplication(result.rows[0]), history });
+  const emailContext = await fetchOne<any>(
+    `SELECT a.full_name, a.email, j.position_title
+     FROM applications ap
+     JOIN applicants a ON a.id = ap.applicant_id
+     JOIN job_vacancies j ON j.id = ap.vacancy_id
+     WHERE ap.id = $1`,
+    [req.params.id]
+  );
+
+  let notificationSent = false;
+  if (emailContext) {
+    try {
+      notificationSent = await sendApplicationStatusEmail({
+        applicantEmail: emailContext.email,
+        applicantName: emailContext.full_name,
+        jobTitle: emailContext.position_title,
+        status,
+        remarks,
+        workflow: {
+          examScheduleDate: updatedExamDate ?? undefined,
+          interviewScheduleDate: updatedInterviewDate ?? undefined,
+          finalEvaluationDate: updatedFinalEvalDate ?? undefined
+        }
+      });
+    } catch (error) {
+      console.error("Failed to send status email", error);
+    }
+  }
+
+  res.json({ application: mapApplication(result.rows[0]), history, notificationSent });
 }));
 
 app.get("/api/status-history", asyncHandler(async (req, res) => {

@@ -63,7 +63,11 @@ export async function initDb() {
       vacancy_id TEXT NOT NULL REFERENCES job_vacancies(id),
       status TEXT NOT NULL,
       date_applied TEXT NOT NULL,
-      remarks TEXT
+      remarks TEXT,
+      documents_complete BOOLEAN NOT NULL DEFAULT FALSE,
+      exam_schedule_date TEXT,
+      interview_schedule_date TEXT,
+      final_evaluation_date TEXT
     );
 
     CREATE TABLE IF NOT EXISTS status_history (
@@ -189,5 +193,14 @@ export async function initDb() {
     DROP COLUMN IF EXISTS exam_score,
     DROP COLUMN IF EXISTS interview_score,
     DROP COLUMN IF EXISTS written_exam_score;
+  `).catch(() => {});
+
+  // Add workflow columns to applications for status progression requirements
+  await query(`
+    ALTER TABLE applications
+    ADD COLUMN IF NOT EXISTS documents_complete BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS exam_schedule_date TEXT,
+    ADD COLUMN IF NOT EXISTS interview_schedule_date TEXT,
+    ADD COLUMN IF NOT EXISTS final_evaluation_date TEXT;
   `).catch(() => {});
 }

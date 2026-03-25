@@ -49,7 +49,7 @@ const LandingPage = () => {
               className="w-9 h-9"
             />
             <span className="font-display text-lg font-bold text-foreground hidden sm:inline">
-              WMSU HRMS
+              WMSU HRMO Tracker
             </span>
           </div>
           <Button onClick={() => navigate("/login")} className="rounded-full px-6">
@@ -69,8 +69,8 @@ const LandingPage = () => {
                 Internal HR System
               </div>
               <h1 className="text-4xl md:text-5xl lg:text-[3.25rem] font-display font-bold leading-tight text-foreground">
-                WMSU Job Hiring{" "}
-                <span className="text-primary">Monitoring System</span>
+                WMSU{" "}
+                <span className="text-primary">HRMO Tracker</span>
               </h1>
               <p className="text-lg text-muted-foreground leading-relaxed">
                 Streamlining Recruitment and Hiring Management for the
@@ -183,7 +183,7 @@ const LandingPage = () => {
             About This System
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            The WMSU Job Hiring Monitoring System is an internal tool developed
+            The WMSU HRMO Tracker is an internal tool developed
             for the Human Resource Management Office of Western Mindanao State
             University. It is designed to digitize and streamline the
             recruitment lifecycle — from posting vacancies and receiving
@@ -205,7 +205,7 @@ const LandingPage = () => {
               className="w-7 h-7 brightness-200"
             />
             <span className="font-display font-semibold">
-              WMSU Job Hiring Monitoring System
+              WMSU HRMO Tracker
             </span>
           </div>
           <p className="text-background/60 text-xs">
