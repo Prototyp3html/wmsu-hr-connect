@@ -22,7 +22,9 @@ import {
   fetchJobs,
   updateApplicant,
   deleteApplicant,
-  uploadApplicantDocument
+  uploadApplicantDocument,
+  fetchApplicantDocuments,
+  getFileUrl
 } from "@/lib/api";
 import { getStatusColor } from "@/lib/status";
 import { Plus, Search, Eye, Mail, Phone, MapPin, GraduationCap, Briefcase, Upload, Pencil, Trash2, Ellipsis } from "lucide-react";
@@ -46,7 +48,8 @@ export default function Applicants() {
     email: "",
     address: "",
     educationalBackground: "",
-    workExperience: ""
+    workExperience: "",
+    vacancyId: ""
   });
   const [editFormState, setEditFormState] = useState({
     fullName: "",
@@ -56,8 +59,8 @@ export default function Applicants() {
     educationalBackground: "",
     workExperience: ""
   });
-  const [documents, setDocuments] = useState<{ resume: File | null; transcript: File | null; certificate: File | null }>(
-    { resume: null, transcript: null, certificate: null }
+  const [documents, setDocuments] = useState<{ resume: File | null; transcript: File | null; certificates: File[] }>(
+    { resume: null, transcript: null, certificates: [] }
   );
   const [appFormState, setAppFormState] = useState({
     vacancyId: "",
@@ -77,6 +80,12 @@ export default function Applicants() {
   const { data: jobVacancies = [] } = useQuery({
     queryKey: ["jobs"],
     queryFn: fetchJobs
+  });
+
+  const { data: applicantDocuments = [] } = useQuery({
+    queryKey: ["applicant-documents", viewingApplicantId],
+    queryFn: () => viewingApplicantId ? fetchApplicantDocuments(viewingApplicantId) : Promise.resolve([]),
+    enabled: !!viewingApplicantId
   });
 
   // Define helper function before using it in useMemo
@@ -101,22 +110,61 @@ export default function Applicants() {
 
   const createMutation = useMutation({
     mutationFn: async (payload: typeof formState) => {
-      const applicant = await createApplicant(payload);
-      const uploads: Array<Promise<unknown>> = [];
-      if (documents.resume) {
-        uploads.push(uploadApplicantDocument(applicant.id, "resume", documents.resume));
+      const { vacancyId, ...applicantData } = payload;
+      const applicant = await createApplicant(applicantData);
+      
+      // Create application with "Application Received" status if vacancy is selected
+      if (vacancyId) {
+        await createApplication({
+          applicantId: applicant.id,
+          vacancyId,
+          dateApplied: new Date().toISOString().split("T")[0],
+          remarks: "Created from applicant registration"
+        });
       }
-      if (documents.transcript) {
-        uploads.push(uploadApplicantDocument(applicant.id, "transcript", documents.transcript));
+      
+      // Upload documents sequentially with proper error handling
+      const uploadErrors: string[] = [];
+      
+      try {
+        if (documents.resume) {
+          try {
+            await uploadApplicantDocument(applicant.id, "resume", documents.resume);
+          } catch (err) {
+            uploadErrors.push(`Resume: ${(err as Error).message}`);
+          }
+        }
+        
+        if (documents.transcript) {
+          try {
+            await uploadApplicantDocument(applicant.id, "transcript", documents.transcript);
+          } catch (err) {
+            uploadErrors.push(`Transcript: ${(err as Error).message}`);
+          }
+        }
+        
+        // Upload multiple certificates
+        for (let i = 0; i < documents.certificates.length; i++) {
+          try {
+            await uploadApplicantDocument(applicant.id, `certificate_${i + 1}`, documents.certificates[i]);
+          } catch (err) {
+            uploadErrors.push(`Certificate ${i + 1}: ${(err as Error).message}`);
+          }
+        }
+        
+        if (uploadErrors.length > 0) {
+          throw new Error(`Some files failed to upload: ${uploadErrors.join('; ')}`);
+        }
+      } catch (error) {
+        // If uploads fail but applicant was created, still throw the error
+        throw error;
       }
-      if (documents.certificate) {
-        uploads.push(uploadApplicantDocument(applicant.id, "certificate", documents.certificate));
-      }
-      await Promise.all(uploads);
+      
       return applicant;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["applicants"] });
+      queryClient.invalidateQueries({ queryKey: ["applications"] });
       setShowCreate(false);
       setFormState({
         fullName: "",
@@ -124,13 +172,16 @@ export default function Applicants() {
         email: "",
         address: "",
         educationalBackground: "",
-        workExperience: ""
+        workExperience: "",
+        vacancyId: ""
       });
-      setDocuments({ resume: null, transcript: null, certificate: null });
-      toast({ title: "Applicant added", description: "The applicant was saved." });
+      setDocuments({ resume: null, transcript: null, certificates: [] });
+      toast({ title: "Applicant added", description: "The applicant has been saved and is now in Application Tracking." });
     },
     onError: (error) => {
-      toast({ title: "Save failed", description: (error as Error).message, variant: "destructive" });
+      const errorMessage = (error as Error).message || "Failed to save applicant";
+      console.error("Applicant creation error:", error);
+      toast({ title: "Save failed", description: errorMessage, variant: "destructive" });
     }
   });
 
@@ -192,7 +243,8 @@ export default function Applicants() {
                 email: formState.email,
                 address: formState.address,
                 educationalBackground: formState.educationalBackground,
-                workExperience: formState.workExperience
+                workExperience: formState.workExperience,
+                vacancyId: formState.vacancyId
               });
             }}>
               <div className="space-y-2">
@@ -247,33 +299,117 @@ export default function Applicants() {
                 />
               </div>
               <div className="space-y-2">
+                <Label>Apply for Position</Label>
+                <Select value={formState.vacancyId} onValueChange={(value) => setFormState((prev) => ({ ...prev, vacancyId: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a job vacancy" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {jobVacancies.map((job) => (
+                      <SelectItem key={job.id} value={job.id}>
+                        {job.positionTitle}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Optional: Select a position to automatically track this applicant</p>
+              </div>
+              <div className="space-y-2">
                 <Label>Upload Documents</Label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {[
                     { id: "resume", label: "Resume" },
-                    { id: "transcript", label: "Transcript" },
-                    { id: "certificate", label: "Certificate" }
-                  ].map((doc) => (
-                    <div key={doc.id} className="space-y-2">
-                      <input
-                        id={doc.id}
-                        type="file"
-                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0] ?? null;
-                          setDocuments((prev) => ({ ...prev, [doc.id]: file }));
-                        }}
-                        className="hidden"
-                      />
-                      <label
-                        htmlFor={doc.id}
-                        className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/40 px-3 py-4 text-sm text-muted-foreground hover:border-primary/60 hover:text-foreground transition-colors cursor-pointer"
-                      >
-                        <Upload className="w-5 h-5" />
-                        <span>{doc.label}</span>
-                      </label>
-                    </div>
-                  ))}
+                    { id: "transcript", label: "Transcript" }
+                  ].map((doc) => {
+                    const file = documents[doc.id as keyof typeof documents];
+                    const isSelected = !!file;
+                    
+                    return (
+                      <div key={doc.id} className="space-y-2">
+                        <input
+                          id={doc.id}
+                          type="file"
+                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                          onChange={(e) => {
+                            const selectedFile = e.target.files?.[0] ?? null;
+                            setDocuments((prev) => ({ ...prev, [doc.id]: selectedFile }));
+                          }}
+                          className="hidden"
+                        />
+                        <label
+                          htmlFor={doc.id}
+                          className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-3 py-4 text-sm transition-colors cursor-pointer ${
+                            isSelected
+                              ? "border-green-500 bg-green-50 text-green-700"
+                              : "border-border bg-muted/40 text-muted-foreground hover:border-primary/60 hover:text-foreground"
+                          }`}
+                        >
+                          {isSelected ? (
+                            <>
+                              <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+                                <span className="text-white text-xs">✓</span>
+                              </div>
+                              <div className="text-center">
+                                <div className="font-medium">{doc.label}</div>
+                                <div className="text-xs truncate max-w-[120px]">{file.name}</div>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="w-5 h-5" />
+                              <span>{doc.label}</span>
+                            </>
+                          )}
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="space-y-2">
+                  <Label>Certificates (Multiple Allowed)</Label>
+                  <div className="space-y-2">
+                    <input
+                      id="certificates"
+                      type="file"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      multiple
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files ?? []);
+                        setDocuments((prev) => ({ ...prev, certificates: files }));
+                      }}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="certificates"
+                      className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-3 py-4 text-sm transition-colors cursor-pointer ${
+                        documents.certificates.length > 0
+                          ? "border-blue-500 bg-blue-50 text-blue-700"
+                          : "border-border bg-muted/40 text-muted-foreground hover:border-primary/60 hover:text-foreground"
+                      }`}
+                    >
+                      {documents.certificates.length > 0 ? (
+                        <>
+                          <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
+                            <span className="text-white text-xs">{documents.certificates.length}</span>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-medium">Certificates ({documents.certificates.length})</div>
+                            <div className="text-xs space-y-1">
+                              {documents.certificates.slice(0, 2).map((cert, idx) => (
+                                <div key={idx} className="truncate max-w-[120px]">{cert.name}</div>
+                              ))}
+                              {documents.certificates.length > 2 && <div className="text-xs">+{documents.certificates.length - 2} more</div>}
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-5 h-5" />
+                          <span>Add Certificates</span>
+                        </>
+                      )}
+                    </label>
+                  </div>
                 </div>
                 <p className="text-xs text-muted-foreground">Accepted: PDF, DOC, JPG</p>
               </div>
@@ -393,16 +529,16 @@ export default function Applicants() {
               <p className="text-xs mt-1">Try adjusting your search or filters</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
+            <div className="w-full overflow-x-hidden">
+              <Table className="w-full">
                 <TableHeader>
                   <TableRow className="border-b border-border/70 bg-muted/40 hover:bg-muted/40">
-                    <TableHead className="h-12 px-4 text-xs font-semibold text-foreground lowercase tracking-wide">Name</TableHead>
-                    <TableHead className="h-12 px-4 text-xs font-semibold text-foreground lowercase tracking-wide">Email</TableHead>
-                    <TableHead className="h-12 px-4 text-xs font-semibold text-foreground lowercase tracking-wide">Contact</TableHead>
-                    <TableHead className="h-12 px-4 text-xs font-semibold text-foreground lowercase tracking-wide">Address</TableHead>
-                    <TableHead className="h-12 px-4 text-xs font-semibold text-foreground lowercase tracking-wide">Status</TableHead>
-                    <TableHead className="h-12 px-4 text-xs font-semibold text-right text-foreground lowercase tracking-wide">Actions</TableHead>
+                    <TableHead className="h-11 px-2 py-2 text-xs font-semibold text-foreground lowercase tracking-wide w-32">Name</TableHead>
+                    <TableHead className="h-11 px-2 py-2 text-xs font-semibold text-foreground lowercase tracking-wide flex-1 min-w-40">Email</TableHead>
+                    <TableHead className="h-11 px-2 py-2 text-xs font-semibold text-foreground lowercase tracking-wide w-28">Contact</TableHead>
+                    <TableHead className="h-11 px-2 py-2 text-xs font-semibold text-foreground lowercase tracking-wide w-32">Address</TableHead>
+                    <TableHead className="h-11 px-2 py-2 text-xs font-semibold text-foreground lowercase tracking-wide w-28">Status</TableHead>
+                    <TableHead className="h-11 px-2 py-2 text-xs font-semibold text-right text-foreground lowercase tracking-wide w-16">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -412,23 +548,23 @@ export default function Applicants() {
                     return (
                       <TableRow
                         key={applicant.id}
-                        className={`border-b border-border/20 h-12 transition-colors ${
+                        className={`border-b border-border/20 h-11 transition-colors ${
                           idx % 2 === 0 ? "bg-background hover:bg-muted/30" : "bg-muted/10 hover:bg-muted/20"
                         }`}
                       >
-                        <TableCell className="px-4 py-2 text-sm font-medium text-foreground truncate">
+                        <TableCell className="px-2 py-2 text-xs font-medium text-foreground truncate w-32">
                           {applicant.fullName}
                         </TableCell>
-                        <TableCell className="px-4 py-2 text-sm text-muted-foreground truncate">
+                        <TableCell className="px-2 py-2 text-xs text-muted-foreground truncate flex-1 min-w-40">
                           {applicant.email}
                         </TableCell>
-                        <TableCell className="px-4 py-2 text-sm text-muted-foreground">
+                        <TableCell className="px-2 py-2 text-xs text-muted-foreground w-28">
                           {applicant.contactNumber}
                         </TableCell>
-                        <TableCell className="px-4 py-2 text-sm text-muted-foreground truncate">
+                        <TableCell className="px-2 py-2 text-xs text-muted-foreground truncate w-32">
                           {applicant.address}
                         </TableCell>
-                        <TableCell className="px-4 py-2">
+                        <TableCell className="px-2 py-2 w-28">
                           {latestApp ? (
                             <span className={`status-badge text-xs ${getStatusColor(latestApp.status)}`}>
                               {latestApp.status}
@@ -437,11 +573,11 @@ export default function Applicants() {
                             <span className="text-xs text-muted-foreground italic">No app</span>
                           )}
                         </TableCell>
-                        <TableCell className="px-4 py-2 text-right">
+                        <TableCell className="px-2 py-2 text-right w-16">
                           <div className="flex justify-end">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="Open actions menu">
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" aria-label="Open actions menu">
                                   <Ellipsis className="w-4 h-4" />
                                 </Button>
                               </DropdownMenuTrigger>
@@ -557,6 +693,29 @@ export default function Applicants() {
                           </div>
                         );
                       })}
+                    </div>
+                  )}
+                  {applicantDocuments.length > 0 && (
+                    <div className="border-t pt-3">
+                      <p className="text-xs font-medium text-muted-foreground mb-2">Uploaded Documents ({applicantDocuments.length})</p>
+                      <div className="space-y-2">
+                        {applicantDocuments.map((doc) => (
+                          <div key={doc.id} className="flex items-start justify-between gap-2 p-2 rounded bg-muted/40 text-sm">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-xs truncate">{doc.originalName}</div>
+                              <div className="text-xs text-muted-foreground capitalize">{doc.docType.replace(/_/g, ' ')}</div>
+                            </div>
+                            <a
+                              href={getFileUrl(doc.url)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 flex-shrink-0 whitespace-nowrap"
+                            >
+                              View
+                            </a>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
