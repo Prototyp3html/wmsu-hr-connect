@@ -8,7 +8,8 @@ import type {
   AuditLog,
   JobVacancy,
   StatusHistory,
-  User
+  User,
+  ParsedApplicantDraft
 } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "/api";
@@ -200,6 +201,12 @@ export async function uploadApplicantDocument(applicantId: string, type: string,
   return apiUpload<ApplicantDocument>(`/applicants/${applicantId}/documents`, formData);
 }
 
+export async function parseApplicantDocument(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiUpload<ParsedApplicantDraft>("/applicants/parse-document", formData);
+}
+
 export async function fetchApplications() {
   return apiFetch<Application[]>("/applications");
 }
@@ -214,10 +221,25 @@ export async function createApplication(payload: { applicantId: string; vacancyI
   });
 }
 
-export async function updateApplicationStatus(payload: { id: string; status: ApplicationStatus; remarks?: string }) {
+export async function updateApplicationStatus(payload: {
+  id: string;
+  status: ApplicationStatus;
+  remarks?: string;
+  documentsComplete?: boolean;
+  examScheduleDate?: string;
+  interviewScheduleDate?: string;
+  finalEvaluationDate?: string;
+}) {
   return apiFetch<{ application: Application; history: StatusHistory }>(`/applications/${payload.id}/status`, {
     method: "PATCH",
-    body: JSON.stringify({ status: payload.status, remarks: payload.remarks })
+    body: JSON.stringify({
+      status: payload.status,
+      remarks: payload.remarks,
+      documentsComplete: payload.documentsComplete,
+      examScheduleDate: payload.examScheduleDate,
+      interviewScheduleDate: payload.interviewScheduleDate,
+      finalEvaluationDate: payload.finalEvaluationDate
+    })
   });
 }
 

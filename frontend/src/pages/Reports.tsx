@@ -161,7 +161,7 @@ export default function Reports() {
     try {
       let csvContent = "";
       const timestamp = new Date().toLocaleString();
-      csvContent += `WMSU HR Report - ${reportType}\nGenerated: ${timestamp}\n\n`;
+      csvContent += `WMSU HRMO Tracker Report - ${reportType}\nGenerated: ${timestamp}\n\n`;
 
       if (reportType === "per-position") {
         csvContent += "Position Title,Total Applications,Hired,Rejected,In Review\n";
