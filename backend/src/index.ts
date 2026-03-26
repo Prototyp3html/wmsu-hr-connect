@@ -1542,7 +1542,7 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 
 async function start() {
   await initDb();
-  await seedIfEmpty();
+  // await seedIfEmpty(); // All sample data has been removed
   await ensureTestAccounts();
   app.listen(PORT, () => {
     console.log(`API listening on http://localhost:${PORT}`);
