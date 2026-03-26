@@ -14,22 +14,6 @@ import type {
 const API_BASE = import.meta.env.VITE_API_URL ?? "/api";
 const TOKEN_KEY = "wmsu_hr_token";
 
-export function getFileUrl(path: string): string {
-  // If path is already absolute, return as-is
-  if (path.startsWith("http://") || path.startsWith("https://")) {
-    return path;
-  }
-  
-  // If API_BASE is a full URL (e.g., http://localhost:4000/api), construct the full file URL
-  if (API_BASE.startsWith("http://") || API_BASE.startsWith("https://")) {
-    const baseUrl = API_BASE.replace("/api", "");
-    return `${baseUrl}${path}`;
-  }
-  
-  // Otherwise just return the path (relative URLs)
-  return path;
-}
-
 export function getAuthToken() {
   return localStorage.getItem(TOKEN_KEY);
 }

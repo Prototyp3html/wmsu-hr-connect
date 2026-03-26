@@ -754,25 +754,9 @@ app.get("/api/applicants/:id/documents", requireAuth, asyncHandler(async (req, r
 }));
 
 app.post("/api/applicants/:id/documents", requireAuth, upload.single("file"), asyncHandler(async (req: AuthedRequest, res) => {
-  const docType = String(req.body.type ?? "").trim();
-  
-  console.log("[DEBUG] Document upload request:", {
-    applicantId: req.params.id,
-    docType,
-    hasFile: !!req.file,
-    body: req.body,
-    file: req.file ? { filename: req.file.filename, size: req.file.size } : null
-  });
-  
-  if (!req.file) {
-    console.error("[ERROR] No file provided in upload");
-    res.status(400).json({ error: "File is required" });
-    return;
-  }
-  
-  if (!docType) {
-    console.error("[ERROR] No document type provided");
-    res.status(400).json({ error: "Document type is required" });
+  const docType = String(req.body.type ?? "");
+  if (!req.file || !docType) {
+    res.status(400).json({ error: "File and type are required" });
     return;
   }
 
@@ -792,7 +776,6 @@ app.post("/api/applicants/:id/documents", requireAuth, upload.single("file"), as
     [doc.id, doc.applicantId, doc.docType, doc.fileName, doc.originalName, doc.mimeType, doc.size, doc.uploadedAt]
   );
 
-  console.log("[SUCCESS] Document uploaded:", { id: doc.id, applicantId: doc.applicantId, docType });
   res.status(201).json({ ...doc, url: `/uploads/${doc.fileName}` });
 }));
 
