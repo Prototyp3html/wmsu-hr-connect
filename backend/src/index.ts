@@ -1035,9 +1035,40 @@ app.post("/api/applicants/:id/documents", requireAuth, upload.single("file"), as
     return;
   }
 
+  const applicantId = req.params.id;
+
+  // For resume and transcript, replace existing ones; for certificates, add new ones
+  if (docType === "resume" || docType === "transcript") {
+    // Get and delete existing document of same type
+    const existing = await query(
+      "SELECT file_name FROM applicant_documents WHERE applicant_id = $1 AND doc_type = $2",
+      [applicantId, docType]
+    );
+    
+    if (existing.rows.length > 0) {
+      const oldFileName = existing.rows[0].file_name;
+      const oldFilePath = path.join(uploadDir, oldFileName);
+      
+      // Delete old file from disk
+      try {
+        if (fs.existsSync(oldFilePath)) {
+          fs.unlinkSync(oldFilePath);
+        }
+      } catch (err) {
+        console.error(`Failed to delete old file ${oldFilePath}:`, err);
+      }
+      
+      // Delete old document record
+      await query(
+        "DELETE FROM applicant_documents WHERE applicant_id = $1 AND doc_type = $2",
+        [applicantId, docType]
+      );
+    }
+  }
+
   const doc = {
     id: randomUUID(),
-    applicantId: req.params.id,
+    applicantId,
     docType,
     fileName: req.file.filename,
     originalName: req.file.originalname,
@@ -1511,7 +1542,7 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 
 async function start() {
   await initDb();
-  await seedIfEmpty();
+  // await seedIfEmpty(); // All sample data has been removed
   await ensureTestAccounts();
   app.listen(PORT, () => {
     console.log(`API listening on http://localhost:${PORT}`);

@@ -25,7 +25,9 @@ import {
   updateApplicant,
   deleteApplicant,
   uploadApplicantDocument,
-  parseApplicantDocument
+  parseApplicantDocument,
+  fetchApplicantDocuments,
+  getFileUrl
 } from "@/lib/api";
 import type { ParsedApplicantDraft } from "@/lib/types";
 import { getStatusColor } from "@/lib/status";
@@ -224,14 +226,17 @@ export default function Applicants() {
     educationalBackground: "",
     workExperience: ""
   });
-  const [documents, setDocuments] = useState<{ resume: File | null; transcript: File | null; certificate: File | null }>(
-    { resume: null, transcript: null, certificate: null }
+  const [documents, setDocuments] = useState<{ resume: File | null; transcript: File | null; certificates: File[] }>(
+    { resume: null, transcript: null, certificates: [] }
   );
   const [appFormState, setAppFormState] = useState({
     vacancyId: "",
     dateApplied: new Date().toISOString().split("T")[0]
   });
   const [isScanningResume, setIsScanningResume] = useState(false);
+  const [editDocuments, setEditDocuments] = useState<{ resume: File | null; transcript: File | null; certificates: File[] }>(
+    { resume: null, transcript: null, certificates: [] }
+  );
 
   const { data: applicants = [] } = useQuery({
     queryKey: ["applicants"],
@@ -246,6 +251,18 @@ export default function Applicants() {
   const { data: jobVacancies = [] } = useQuery({
     queryKey: ["jobs"],
     queryFn: fetchJobs
+  });
+
+  const { data: applicantDocuments = [] } = useQuery({
+    queryKey: ["applicant-documents", viewingApplicantId],
+    queryFn: () => (viewingApplicantId ? fetchApplicantDocuments(viewingApplicantId) : Promise.resolve([])),
+    enabled: !!viewingApplicantId
+  });
+
+  const { data: editingApplicantDocuments = [] } = useQuery({
+    queryKey: ["applicant-documents-edit", editingApplicantId],
+    queryFn: () => (editingApplicantId ? fetchApplicantDocuments(editingApplicantId) : Promise.resolve([])),
+    enabled: !!editingApplicantId
   });
 
   const selectedRegionName = useMemo(
@@ -432,7 +449,7 @@ export default function Applicants() {
     setAddressParts({ regionCode: "", cityCode: "", barangayCode: "", streetAddress: "" });
     setCityUnits([]);
     setBarangayUnits([]);
-    setDocuments({ resume: null, transcript: null, certificate: null });
+    setDocuments({ resume: null, transcript: null, certificates: [] });
   };
 
   const resolveParsedAddressToDropdowns = async (parsedAddress: string) => {
@@ -599,9 +616,9 @@ export default function Applicants() {
       if (documents.transcript) {
         uploads.push(uploadApplicantDocument(applicant.id, "transcript", documents.transcript));
       }
-      if (documents.certificate) {
-        uploads.push(uploadApplicantDocument(applicant.id, "certificate", documents.certificate));
-      }
+      documents.certificates.forEach((cert, idx) => {
+        uploads.push(uploadApplicantDocument(applicant.id, `certificate_${idx + 1}`, cert));
+      });
       await Promise.all(uploads);
       return applicant;
     },
@@ -617,11 +634,28 @@ export default function Applicants() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: typeof editFormState }) => updateApplicant(id, payload),
+    mutationFn: async ({ id, payload }: { id: string; payload: typeof editFormState }) => {
+      await updateApplicant(id, payload);
+      const uploads: Array<Promise<unknown>> = [];
+      if (editDocuments.resume) {
+        uploads.push(uploadApplicantDocument(id, "resume", editDocuments.resume));
+      }
+      if (editDocuments.transcript) {
+        uploads.push(uploadApplicantDocument(id, "transcript", editDocuments.transcript));
+      }
+      editDocuments.certificates.forEach((cert, idx) => {
+        uploads.push(uploadApplicantDocument(id, `certificate_${idx + 1}`, cert));
+      });
+      if (uploads.length > 0) {
+        await Promise.all(uploads);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["applicants"] });
+      queryClient.invalidateQueries({ queryKey: ["applicant-documents-edit"] });
       setShowEdit(false);
       setEditingApplicantId(null);
+      setEditDocuments({ resume: null, transcript: null, certificates: [] });
       toast({ title: "Applicant updated", description: "Changes saved." });
     },
     onError: (error) => {
@@ -812,32 +846,123 @@ export default function Applicants() {
               </div>
               <div className="space-y-2">
                 <Label>Upload Documents</Label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {[
-                    { id: "resume", label: "Resume", accept: ".pdf,.docx,.txt" },
-                    { id: "transcript", label: "Transcript", accept: ".pdf,.doc,.docx,.jpg,.jpeg,.png" },
-                    { id: "certificate", label: "Certificate", accept: ".pdf,.doc,.docx,.jpg,.jpeg,.png" }
-                  ].map((doc) => (
-                    <div key={doc.id} className="space-y-2">
-                      <input
-                        id={doc.id}
-                        type="file"
-                        accept={doc.accept}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0] ?? null;
-                          setDocuments((prev) => ({ ...prev, [doc.id]: file }));
-                        }}
-                        className="hidden"
-                      />
-                      <label
-                        htmlFor={doc.id}
-                        className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/40 px-3 py-4 text-sm text-muted-foreground hover:border-primary/60 hover:text-foreground transition-colors cursor-pointer"
-                      >
-                        <Upload className="w-5 h-5" />
-                        <span>{doc.label}</span>
-                      </label>
+                <div className="space-y-3">
+                  {/* Resume */}
+                  <div className="space-y-2">
+                    <input
+                      id="resume"
+                      type="file"
+                      accept=".pdf,.docx,.txt"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        setDocuments((prev) => ({ ...prev, resume: file }));
+                      }}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="resume"
+                      className={`flex items-center justify-between gap-2 rounded-lg border-2 border-dashed px-3 py-4 text-sm transition-colors cursor-pointer ${
+                        documents.resume
+                          ? "border-green-500 bg-green-50 text-green-700"
+                          : "border-border bg-muted/40 text-muted-foreground hover:border-primary/60 hover:text-foreground"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {documents.resume ? (
+                          <Check className="w-5 h-5 text-green-600" />
+                        ) : (
+                          <Upload className="w-5 h-5" />
+                        )}
+                        <span>{documents.resume ? documents.resume.name : "Resume"}</span>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Transcript */}
+                  <div className="space-y-2">
+                    <input
+                      id="transcript"
+                      type="file"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        setDocuments((prev) => ({ ...prev, transcript: file }));
+                      }}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="transcript"
+                      className={`flex items-center justify-between gap-2 rounded-lg border-2 border-dashed px-3 py-4 text-sm transition-colors cursor-pointer ${
+                        documents.transcript
+                          ? "border-green-500 bg-green-50 text-green-700"
+                          : "border-border bg-muted/40 text-muted-foreground hover:border-primary/60 hover:text-foreground"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {documents.transcript ? (
+                          <Check className="w-5 h-5 text-green-600" />
+                        ) : (
+                          <Upload className="w-5 h-5" />
+                        )}
+                        <span>{documents.transcript ? documents.transcript.name : "Transcript"}</span>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Certificates */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Certificates</span>
+                      {documents.certificates.length > 0 && (
+                        <span className="text-xs text-muted-foreground">({documents.certificates.length} file{documents.certificates.length !== 1 ? "s" : ""})</span>
+                      )}
                     </div>
-                  ))}
+                    <input
+                      id="certificate"
+                      type="file"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        if (file) {
+                          setDocuments((prev) => ({ ...prev, certificates: [...prev.certificates, file] }));
+                          // Reset input so same file can be selected again
+                          e.target.value = "";
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    {documents.certificates.length > 0 && (
+                      <div className="space-y-2">
+                        {documents.certificates.map((cert, idx) => (
+                          <div key={idx} className="flex items-center justify-between gap-2 rounded-lg border border-green-500 bg-green-50 px-3 py-2 text-sm text-green-700">
+                            <div className="flex items-center gap-2">
+                              <Check className="w-4 h-4 text-green-600" />
+                              <span className="truncate">{cert.name}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDocuments((prev) => ({
+                                  ...prev,
+                                  certificates: prev.certificates.filter((_, i) => i !== idx)
+                                }));
+                              }}
+                              className="text-green-600 hover:text-green-800 font-medium text-xs"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <label
+                      htmlFor="certificate"
+                      className="flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/40 px-3 py-4 text-sm text-muted-foreground hover:border-primary/60 hover:text-foreground transition-colors cursor-pointer"
+                    >
+                      <Upload className="w-5 h-5" />
+                      <span>Add Certificate</span>
+                    </label>
+                  </div>
                 </div>
                 <p className="text-xs text-muted-foreground">Scan supports: PDF, DOCX, TXT</p>
                 <Button
@@ -866,7 +991,13 @@ export default function Applicants() {
             </form>
           </DialogContent>
         </Dialog>
-        <Dialog open={showEdit} onOpenChange={setShowEdit}>
+        <Dialog open={showEdit} onOpenChange={(open) => {
+          if (!open) {
+            setShowEdit(false);
+            setEditingApplicantId(null);
+            setEditDocuments({ resume: null, transcript: null, certificates: [] });
+          }
+        }}>
           <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Edit Applicant</DialogTitle></DialogHeader>
             <form className="space-y-4" onSubmit={(e) => {
@@ -925,8 +1056,160 @@ export default function Applicants() {
                   onChange={(e) => setEditFormState((prev) => ({ ...prev, workExperience: e.target.value }))}
                 />
               </div>
+              
+              {/* Document Management */}
+              <div className="space-y-3 pt-4 border-t">
+                <Label>Manage Documents</Label>
+                
+                {/* Existing Documents */}
+                {editingApplicantDocuments.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Current Documents</p>
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                      {editingApplicantDocuments.map((doc) => (
+                        <div key={doc.id} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <span className="truncate">{doc.originalName}</span>
+                            <span className="text-muted-foreground whitespace-nowrap">({doc.docType})</span>
+                          </div>
+                          <a
+                            href={getFileUrl(doc.url)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 font-medium text-xs shrink-0"
+                          >
+                            View
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Add New Documents */}
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">Add New Documents</p>
+                  
+                  {/* Resume */}
+                  <div className="space-y-1">
+                    <input
+                      id="edit-resume"
+                      type="file"
+                      accept=".pdf,.docx,.txt"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        setEditDocuments((prev) => ({ ...prev, resume: file }));
+                        e.target.value = "";
+                      }}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="edit-resume"
+                      className={`flex items-center justify-between gap-2 rounded-lg border-2 border-dashed px-3 py-2 text-xs transition-colors cursor-pointer ${
+                        editDocuments.resume
+                          ? "border-green-500 bg-green-50 text-green-700"
+                          : "border-border bg-muted/40 text-muted-foreground hover:border-primary/60"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {editDocuments.resume ? (
+                          <Check className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <Upload className="w-4 h-4" />
+                        )}
+                        <span>{editDocuments.resume ? editDocuments.resume.name : "Replace Resume"}</span>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Transcript */}
+                  <div className="space-y-1">
+                    <input
+                      id="edit-transcript"
+                      type="file"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        setEditDocuments((prev) => ({ ...prev, transcript: file }));
+                        e.target.value = "";
+                      }}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="edit-transcript"
+                      className={`flex items-center justify-between gap-2 rounded-lg border-2 border-dashed px-3 py-2 text-xs transition-colors cursor-pointer ${
+                        editDocuments.transcript
+                          ? "border-green-500 bg-green-50 text-green-700"
+                          : "border-border bg-muted/40 text-muted-foreground hover:border-primary/60"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {editDocuments.transcript ? (
+                          <Check className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <Upload className="w-4 h-4" />
+                        )}
+                        <span>{editDocuments.transcript ? editDocuments.transcript.name : "Replace Transcript"}</span>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Certificates */}
+                  <div className="space-y-1">
+                    <input
+                      id="edit-certificate"
+                      type="file"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        if (file) {
+                          setEditDocuments((prev) => ({ ...prev, certificates: [...prev.certificates, file] }));
+                          e.target.value = "";
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    {editDocuments.certificates.length > 0 && (
+                      <div className="space-y-1">
+                        {editDocuments.certificates.map((cert, idx) => (
+                          <div key={idx} className="flex items-center justify-between gap-2 rounded-lg border border-green-500 bg-green-50 px-3 py-1 text-xs text-green-700">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <Check className="w-3 h-3 text-green-600 shrink-0" />
+                              <span className="truncate">{cert.name}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditDocuments((prev) => ({
+                                  ...prev,
+                                  certificates: prev.certificates.filter((_, i) => i !== idx)
+                                }));
+                              }}
+                              className="text-green-600 hover:text-green-800 font-medium text-xs shrink-0"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <label
+                      htmlFor="edit-certificate"
+                      className="flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground hover:border-primary/60 transition-colors cursor-pointer"
+                    >
+                      <Upload className="w-4 h-4" />
+                      <span>Add New Certificate</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
               <div className="flex justify-end gap-3">
-                <Button variant="outline" type="button" onClick={() => setShowEdit(false)}>Cancel</Button>
+                <Button variant="outline" type="button" onClick={() => {
+                  setShowEdit(false);
+                  setEditingApplicantId(null);
+                  setEditDocuments({ resume: null, transcript: null, certificates: [] });
+                }}>Cancel</Button>
                 <Button type="submit" disabled={updateMutation.isPending}>Save Changes</Button>
               </div>
             </form>
@@ -975,8 +1258,8 @@ export default function Applicants() {
               <p className="text-xs mt-1">Try adjusting your search or filters</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
+            <div className="w-full overflow-x-hidden">
+              <Table className="w-full">
                 <TableHeader>
                   <TableRow className="border-b border-border/70 bg-primary text-primary-foreground hover:bg-primary">
                     <TableHead className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Name</TableHead>
@@ -1023,7 +1306,7 @@ export default function Applicants() {
                           <div className="flex justify-end">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="Open actions menu">
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" aria-label="Open actions menu">
                                   <Ellipsis className="w-4 h-4" />
                                 </Button>
                               </DropdownMenuTrigger>
@@ -1048,6 +1331,7 @@ export default function Applicants() {
                                       educationalBackground: applicant.educationalBackground,
                                       workExperience: applicant.workExperience
                                     });
+                                    setEditDocuments({ resume: null, transcript: null, certificates: [] });
                                     setShowEdit(true);
                                   }}
                                 >
@@ -1139,6 +1423,29 @@ export default function Applicants() {
                           </div>
                         );
                       })}
+                    </div>
+                  )}
+                  {applicantDocuments.length > 0 && (
+                    <div className="border-t pt-3">
+                      <p className="text-xs font-medium text-muted-foreground mb-2">Submitted Documents ({applicantDocuments.length})</p>
+                      <div className="space-y-2">
+                        {applicantDocuments.map((doc) => (
+                          <div key={doc.id} className="flex items-center justify-between py-2 border-b last:border-0 text-sm">
+                            <div className="flex-1">
+                              <p className="font-medium text-xs">{doc.originalName}</p>
+                              <p className="text-xs text-muted-foreground">{doc.docType}</p>
+                            </div>
+                            <a
+                              href={getFileUrl(doc.url)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 text-xs font-medium"
+                            >
+                              View
+                            </a>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
