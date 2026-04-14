@@ -2,15 +2,22 @@ import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchApplicants, fetchApplications, fetchJobs, fetchStatusHistory, updateApplicationStatus } from "@/lib/api";
 import { allStatuses, getStatusColor, getNextSuggestedStatus } from "@/lib/status";
 import type { Application, ApplicationStatus } from "@/lib/types";
-import { Clock, MessageSquare, ArrowRight, Lightbulb } from "lucide-react";
+import { Clock, MessageSquare, ArrowRight, Lightbulb, Ellipsis } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const nextStepHints: Partial<Record<ApplicationStatus, string>> = {
@@ -120,35 +127,58 @@ export default function ApplicationTracking() {
       </Card>
 
       {/* Applications */}
-      <div className="space-y-3">
-        {filtered.map((app) => {
-          return (
-            <Card key={app.id} className="card-hover">
-              <CardContent className="pt-5 pb-4">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-foreground">{getApplicantName(app.applicantId)}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Applied for <span className="font-medium text-foreground">{getVacancyTitle(app.vacancyId)}</span>
-                    </p>
-                    <div className="flex items-center gap-3 mt-2">
-                      <span className={`status-badge ${getStatusColor(app.status)}`}>{app.status}</span>
-                      <span className="text-xs text-muted-foreground">Applied: {app.dateApplied}</span>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {/* Suggested Next Step */}
-                    {getNextSuggestedStatus(app.status) && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs border-blue-300 text-blue-800 hover:bg-blue-100 gap-1"
-                        onClick={() => setSuggestedApp(app)}
-                      >
-                        <Lightbulb className="w-3 h-3" />
-                        <span className="hidden sm:inline">Suggested</span>
-                      </Button>
-                    )}
+      <Card className="border border-border/50 shadow-sm overflow-hidden">
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-b border-border/70 bg-primary text-primary-foreground hover:bg-primary">
+                  <TableHead className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Applicant</TableHead>
+                  <TableHead className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Position</TableHead>
+                  <TableHead className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Status</TableHead>
+                  <TableHead className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Date Applied</TableHead>
+                  <TableHead className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Workflow</TableHead>
+                  <TableHead className="h-12 px-4 text-[11px] font-semibold text-right text-primary-foreground uppercase tracking-wide">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((app, idx) => (
+                  <TableRow
+                    key={app.id}
+                    className={`border-b border-border/20 h-14 transition-colors ${
+                      idx % 2 === 0 ? "bg-background hover:bg-muted/30" : "bg-muted/10 hover:bg-muted/20"
+                    }`}
+                  >
+                    <TableCell className="px-4 py-3 text-sm font-medium text-foreground">
+                      {getApplicantName(app.applicantId)}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-muted-foreground">
+                      {getVacancyTitle(app.vacancyId)}
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
+                      <span className={`status-badge text-xs ${getStatusColor(app.status)}`}>{app.status}</span>
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-muted-foreground">
+                      {app.dateApplied}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-xs text-muted-foreground max-w-[260px]">
+                      {nextStepHints[app.status] ?? "No further progression required."}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-right">
+                      <div className="flex justify-end">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="Open actions menu">
+                          <Ellipsis className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        {getNextSuggestedStatus(app.status) && (
+                          <DropdownMenuItem onClick={() => setSuggestedApp(app)}>
+                            <Lightbulb className="w-4 h-4 mr-2" />
+                            Suggested Step
+                          </DropdownMenuItem>
+                        )}
 
                     {/* Update Status */}
                     <Dialog onOpenChange={(open) => {
@@ -166,7 +196,10 @@ export default function ApplicationTracking() {
                       }
                     }}>
                       <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="text-xs">Update Status</Button>
+                        <DropdownMenuItem onSelect={(event) => event.preventDefault()}>
+                          <ArrowRight className="w-4 h-4 mr-2" />
+                          Update Status
+                        </DropdownMenuItem>
                       </DialogTrigger>
                       <DialogContent>
                         <DialogHeader><DialogTitle>Update Application Status</DialogTitle></DialogHeader>
@@ -286,9 +319,10 @@ export default function ApplicationTracking() {
                       }
                     }}>
                       <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="text-xs sm:text-sm" onClick={() => setSelectedApp(app)}>
-                          <Clock className="w-4 h-4 sm:mr-1" /> <span className="hidden sm:inline">History</span>
-                        </Button>
+                        <DropdownMenuItem onSelect={(event) => event.preventDefault()} onClick={() => setSelectedApp(app)}>
+                          <Clock className="w-4 h-4 mr-2" />
+                          History
+                        </DropdownMenuItem>
                       </DialogTrigger>
                       <DialogContent className="max-h-[80vh] flex flex-col">
                         <DialogHeader><DialogTitle>Status History</DialogTitle></DialogHeader>
@@ -324,6 +358,8 @@ export default function ApplicationTracking() {
                         </div>
                       </DialogContent>
                     </Dialog>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
 
                     {/* Suggested Step Modal */}
                     <Dialog open={suggestedApp?.id === app.id} onOpenChange={(open) => {
@@ -372,13 +408,15 @@ export default function ApplicationTracking() {
                         )}
                       </DialogContent>
                     </Dialog>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

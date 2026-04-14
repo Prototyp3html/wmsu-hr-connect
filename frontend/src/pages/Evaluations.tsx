@@ -5,10 +5,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createEvaluation, fetchApplicants, fetchApplications, fetchEvaluations, fetchJobs, updateEvaluation, deleteEvaluation } from "@/lib/api";
-import { Award, Trophy, Pencil, Trash2, Info } from "lucide-react";
+import { Award, Trophy, Pencil, Trash2, Info, Ellipsis } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Evaluation } from "@/lib/types";
 
@@ -18,6 +24,8 @@ export default function Evaluations() {
   const [showEdit, setShowEdit] = useState(false);
   const [editingEvaluationId, setEditingEvaluationId] = useState<string | null>(null);
   const [selectedAppId, setSelectedAppId] = useState<string>("");
+  const [positionFilter, setPositionFilter] = useState("all");
+  const [levelFilter, setLevelFilter] = useState<"all" | "first_level" | "second_level">("all");
   
   const [formState, setFormState] = useState({
     applicationId: "",
@@ -151,20 +159,29 @@ export default function Evaluations() {
   const editingEvaluation = evaluations.find((ev) => ev.id === editingEvaluationId) ?? null;
   const editingApplication = applications.find((app) => app.id === editingEvaluation?.applicationId) ?? null;
 
-  // Group evaluations by vacancy
-  const vacancyGroups = useMemo(() => {
-    return jobVacancies.map((v) => {
-      const apps = applications.filter((a) => a.vacancyId === v.id);
-      const evals = apps
-        .map((app) => {
-          const ev = evaluations.find((e) => e.applicationId === app.id);
-          return ev ? { ...ev, applicantName: getApplicantName(app.applicantId) } : null;
-        })
-        .filter(Boolean)
-        .sort((a, b) => (b?.totalScore ?? 0) - (a?.totalScore ?? 0));
-      return { vacancy: v, evaluations: evals };
-    }).filter((g) => g.evaluations.length > 0);
-  }, [applications, evaluations, jobVacancies, applicants]);
+  const evaluationRows = useMemo(() => {
+    return evaluations
+      .map((evaluation) => {
+        const application = applications.find((app) => app.id === evaluation.applicationId);
+        const vacancy = application ? jobVacancies.find((job) => job.id === application.vacancyId) : null;
+        return {
+          ...evaluation,
+          applicantName: application ? getApplicantName(application.applicantId) : "Unknown",
+          positionTitle: vacancy?.positionTitle ?? "Unknown position",
+          vacancyId: vacancy?.id ?? "",
+          displayLevel: (vacancy as any)?.positionLevel ?? evaluation.positionLevel
+        };
+      })
+      .sort((a, b) => b.totalScore - a.totalScore);
+  }, [evaluations, applications, jobVacancies]);
+
+  const filteredEvaluationRows = useMemo(() => {
+    return evaluationRows.filter((row) => {
+      const matchesPosition = positionFilter === "all" || row.vacancyId === positionFilter;
+      const matchesLevel = levelFilter === "all" || row.displayLevel === levelFilter;
+      return matchesPosition && matchesLevel;
+    });
+  }, [evaluationRows, positionFilter, levelFilter]);
 
   const FirstLevelForm = ({ state, setState }: any) => (
     <div className="space-y-4">
@@ -503,66 +520,114 @@ export default function Evaluations() {
         </DialogContent>
       </Dialog>
 
-      {/* Ranking by Vacancy */}
-      {vacancyGroups.map(({ vacancy, evaluations: evals }) => (
-        <Card key={vacancy.id}>
-          <CardContent className="pt-5">
-            <h3 className="font-semibold text-foreground mb-1">{vacancy.positionTitle}</h3>
-            <p className="text-xs text-muted-foreground mb-4">Position Level: {(vacancy as any)?.positionLevel === "second_level" ? "Second Level" : "First Level"} — Ranked by total score</p>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left">
-                    <th className="pb-3 font-medium text-muted-foreground w-12">Rank</th>
-                    <th className="pb-3 font-medium text-muted-foreground">Applicant</th>
-                    <th className="pb-3 font-medium text-muted-foreground text-center">Total Score</th>
-                    <th className="pb-3 font-medium text-muted-foreground">Remarks</th>
-                    <th className="pb-3 font-medium text-muted-foreground text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {evals.map((ev, idx) => (
-                    <tr key={ev!.id} className="border-b last:border-0">
-                      <td className="py-3">
-                        <div className="flex items-center gap-1">
-                          {idx === 0 && <Trophy className="w-4 h-4 text-warning" />}
-                          <span className="font-medium">{idx + 1}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 font-medium text-foreground">{ev!.applicantName}</td>
-                      <td className="py-3 text-center font-bold text-primary text-base">{ev!.totalScore.toFixed(1)}</td>
-                      <td className="py-3 text-muted-foreground text-xs">{ev!.remarks}</td>
-                      <td className="py-3">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenEdit(ev!)}
-                          >
-                            <Pencil className="w-4 h-4" />
+      <Card>
+        <CardContent className="pt-4 pb-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-muted-foreground">Filter by Position</Label>
+              <Select value={positionFilter} onValueChange={setPositionFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Positions" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Positions</SelectItem>
+                  {jobVacancies.map((vacancy) => (
+                    <SelectItem key={vacancy.id} value={vacancy.id}>{vacancy.positionTitle}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-muted-foreground">Filter by Position Level</Label>
+              <Select value={levelFilter} onValueChange={(value) => setLevelFilter(value as "all" | "first_level" | "second_level")}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Levels" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Levels</SelectItem>
+                  <SelectItem value="first_level">First Level</SelectItem>
+                  <SelectItem value="second_level">Second Level</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border/70 bg-primary text-primary-foreground text-left">
+                  <th className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide w-12">Rank</th>
+                  <th className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Applicant</th>
+                  <th className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Position</th>
+                  <th className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Level</th>
+                  <th className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide text-center">Total Score</th>
+                  <th className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Remarks</th>
+                  <th className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredEvaluationRows.map((ev, idx) => (
+                  <tr
+                    key={ev.id}
+                    className={`h-14 border-b border-border/20 transition-colors ${
+                      idx % 2 === 0 ? "bg-background hover:bg-muted/30" : "bg-muted/10 hover:bg-muted/20"
+                    }`}
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        {idx === 0 && <Trophy className="w-4 h-4 text-warning" />}
+                        <span className="font-medium">{idx + 1}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 font-medium text-foreground">{ev.applicantName}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{ev.positionTitle}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{ev.displayLevel === "second_level" ? "Second Level" : "First Level"}</td>
+                    <td className="px-4 py-3 text-center font-bold text-primary text-base">{ev.totalScore.toFixed(1)}</td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs">{ev.remarks}</td>
+                    <td className="px-4 py-3 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="Open actions menu">
+                            <Ellipsis className="w-4 h-4" />
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-destructive hover:text-destructive"
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40">
+                          <DropdownMenuItem onClick={() => handleOpenEdit(ev)}>
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
                             onClick={() => {
                               if (window.confirm("Delete this evaluation?")) {
-                                deleteMutation.mutate(ev!.id);
+                                deleteMutation.mutate(ev.id);
                               }
                             }}
                           >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </tr>
+                ))}
+                {filteredEvaluationRows.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                      No evaluations found for the selected filters.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

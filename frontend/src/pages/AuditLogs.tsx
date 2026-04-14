@@ -109,39 +109,44 @@ export default function AuditLogs() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-left">
-                  <th className="pb-3 font-medium text-muted-foreground">Time</th>
-                  <th className="pb-3 font-medium text-muted-foreground">User</th>
-                  <th className="pb-3 font-medium text-muted-foreground">Action</th>
-                  <th className="pb-3 font-medium text-muted-foreground">Login Source</th>
-                  <th className="pb-3 font-medium text-muted-foreground">Device / Browser</th>
+                <tr className="border-b border-border/70 bg-primary text-primary-foreground text-left">
+                  <th className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Time</th>
+                  <th className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">User</th>
+                  <th className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Action</th>
+                  <th className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Login Source</th>
+                  <th className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Device / Browser</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((log) => {
+                {filtered.map((log, idx) => {
                   const detailEmail = typeof log.details?.email === "string" ? log.details.email : null;
                   return (
-                    <tr key={log.id} className="border-b last:border-0">
-                      <td className="py-3 text-muted-foreground">
+                    <tr
+                      key={log.id}
+                      className={`border-b border-border/20 transition-colors ${
+                        idx % 2 === 0 ? "bg-background hover:bg-muted/30" : "bg-muted/10 hover:bg-muted/20"
+                      }`}
+                    >
+                      <td className="px-4 py-3 text-muted-foreground">
                         {new Date(log.createdAt).toLocaleString()}
                       </td>
-                      <td className="py-3">
+                      <td className="px-4 py-3">
                         <div className="font-medium text-foreground">{log.userName ?? "Unknown"}</div>
                         <div className="text-xs text-muted-foreground">
                           {log.userEmail ?? detailEmail ?? "—"}
                         </div>
                       </td>
-                      <td className="py-3">
+                      <td className="px-4 py-3">
                         <span
                           className={`status-badge ${actionBadgeStyles[log.action] ?? "bg-muted text-muted-foreground"}`}
                         >
                           {actionLabels[log.action] ?? log.action}
                         </span>
                       </td>
-                      <td className="py-3 text-muted-foreground" title={log.ip ?? ""}>
+                      <td className="px-4 py-3 text-muted-foreground" title={log.ip ?? ""}>
                         {formatLoginSource(log.ip)}
                       </td>
-                      <td className="py-3 text-muted-foreground max-w-xs truncate" title={log.userAgent ?? ""}>
+                      <td className="px-4 py-3 text-muted-foreground max-w-xs truncate" title={log.userAgent ?? ""}>
                         {formatDeviceBrowser(log.userAgent)}
                       </td>
                     </tr>

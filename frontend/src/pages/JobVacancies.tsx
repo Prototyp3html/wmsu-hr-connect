@@ -6,11 +6,18 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createJob, fetchDepartments, fetchJobs, fetchPositionTitles, updateJob, deleteJob } from "@/lib/api";
 import { getVacancyStatusColor } from "@/lib/status";
 import type { JobVacancy } from "@/lib/types";
-import { Plus, Search, Pencil, Eye, Trash2 } from "lucide-react";
+import { Plus, Search, Pencil, Eye, Trash2, Ellipsis } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -419,84 +426,108 @@ export default function JobVacancies() {
       </Card>
 
       {/* Vacancy List */}
-      <div className="grid gap-4">
-        {filtered.map((vacancy) => (
-          <Card key={vacancy.id} className="card-hover">
-            <CardContent className="pt-5 pb-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-1">
-                    <h3 className="font-semibold text-foreground">{vacancy.positionTitle}</h3>
-                    <span className={`status-badge ${getVacancyStatusColor(vacancy.status)}`}>{vacancy.status}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{getDepartmentName(vacancy.departmentId)}</p>
-                  <div className="flex flex-wrap gap-4 mt-2 text-xs text-muted-foreground">
-                    <span>SG-{vacancy.salaryGrade}</span>
-                    <span>Posted: {vacancy.postingDate}</span>
-                    <span>Closing: {vacancy.closingDate}</span>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <Eye className="w-4 h-4 mr-1" /> View
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader><DialogTitle>{vacancy.positionTitle}</DialogTitle></DialogHeader>
-                      <div className="space-y-3 text-sm">
-                        <div><span className="text-muted-foreground">Department:</span> <span className="font-medium">{getDepartmentName(vacancy.departmentId)}</span></div>
-                        <div><span className="text-muted-foreground">Salary Grade:</span> <span className="font-medium">SG-{vacancy.salaryGrade}</span></div>
-                        <div><span className="text-muted-foreground">Status:</span> <Badge variant="outline">{vacancy.status}</Badge></div>
-                        <div><span className="text-muted-foreground">Posting Date:</span> <span>{vacancy.postingDate}</span></div>
-                        <div><span className="text-muted-foreground">Closing Date:</span> <span>{vacancy.closingDate}</span></div>
-                        <div><span className="text-muted-foreground">Qualifications:</span><p className="mt-1">{vacancy.qualifications}</p></div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                  {user?.role === "admin" && (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setEditingId(vacancy.id);
-                          setEditFormState({
-                            positionTitle: vacancy.positionTitle,
-                            departmentId: vacancy.departmentId,
-                            salaryGrade: String(vacancy.salaryGrade),
-                            qualifications: vacancy.qualifications,
-                            postingDate: vacancy.postingDate,
-                            closingDate: vacancy.closingDate,
-                            status: vacancy.status,
-                            positionLevel: vacancy.positionLevel ?? "first_level"
-                          });
-                          setShowEdit(true);
-                        }}
-                      >
-                        <Pencil className="w-4 h-4 mr-1" /> Edit
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => {
-                          if (window.confirm(`Delete ${vacancy.positionTitle}?`)) {
-                            deleteMutation.mutate(vacancy.id);
-                          }
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <Card className="border border-border/50 shadow-sm overflow-hidden">
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-b border-border/70 bg-primary text-primary-foreground hover:bg-primary">
+                  <TableHead className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Position</TableHead>
+                  <TableHead className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Department</TableHead>
+                  <TableHead className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">SG</TableHead>
+                  <TableHead className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Posting</TableHead>
+                  <TableHead className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Closing</TableHead>
+                  <TableHead className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Status</TableHead>
+                  <TableHead className="h-12 px-4 text-[11px] font-semibold text-right text-primary-foreground uppercase tracking-wide">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((vacancy, idx) => (
+                  <TableRow
+                    key={vacancy.id}
+                    className={`border-b border-border/20 h-14 transition-colors ${
+                      idx % 2 === 0 ? "bg-background hover:bg-muted/30" : "bg-muted/10 hover:bg-muted/20"
+                    }`}
+                  >
+                    <TableCell className="px-4 py-3 text-sm font-medium text-foreground">{vacancy.positionTitle}</TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-muted-foreground">{getDepartmentName(vacancy.departmentId)}</TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-muted-foreground">{vacancy.salaryGrade}</TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-muted-foreground">{vacancy.postingDate}</TableCell>
+                    <TableCell className="px-4 py-3 text-sm text-muted-foreground">{vacancy.closingDate}</TableCell>
+                    <TableCell className="px-4 py-3">
+                      <span className={`status-badge text-xs ${getVacancyStatusColor(vacancy.status)}`}>{vacancy.status}</span>
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-right">
+                      <Dialog>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="Open actions menu">
+                              <Ellipsis className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-44">
+                            <DialogTrigger asChild>
+                              <DropdownMenuItem onSelect={(event) => event.preventDefault()}>
+                                <Eye className="w-4 h-4 mr-2" />
+                                View
+                              </DropdownMenuItem>
+                            </DialogTrigger>
+                            {user?.role === "admin" && (
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setEditingId(vacancy.id);
+                                  setEditFormState({
+                                    positionTitle: vacancy.positionTitle,
+                                    departmentId: vacancy.departmentId,
+                                    salaryGrade: String(vacancy.salaryGrade),
+                                    qualifications: vacancy.qualifications,
+                                    postingDate: vacancy.postingDate,
+                                    closingDate: vacancy.closingDate,
+                                    status: vacancy.status,
+                                    positionLevel: vacancy.positionLevel ?? "first_level"
+                                  });
+                                  setShowEdit(true);
+                                }}
+                              >
+                                <Pencil className="w-4 h-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                            )}
+                            {user?.role === "admin" && (
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => {
+                                  if (window.confirm(`Delete ${vacancy.positionTitle}?`)) {
+                                    deleteMutation.mutate(vacancy.id);
+                                  }
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <DialogContent>
+                          <DialogHeader><DialogTitle>{vacancy.positionTitle}</DialogTitle></DialogHeader>
+                          <div className="space-y-3 text-sm">
+                            <div><span className="text-muted-foreground">Department:</span> <span className="font-medium">{getDepartmentName(vacancy.departmentId)}</span></div>
+                            <div><span className="text-muted-foreground">Salary Grade:</span> <span className="font-medium">SG-{vacancy.salaryGrade}</span></div>
+                            <div><span className="text-muted-foreground">Status:</span> <Badge variant="outline">{vacancy.status}</Badge></div>
+                            <div><span className="text-muted-foreground">Posting Date:</span> <span>{vacancy.postingDate}</span></div>
+                            <div><span className="text-muted-foreground">Closing Date:</span> <span>{vacancy.closingDate}</span></div>
+                            <div><span className="text-muted-foreground">Qualifications:</span><p className="mt-1">{vacancy.qualifications}</p></div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -48,8 +48,10 @@ const LandingPage = () => {
               alt="WMSU Seal"
               className="w-9 h-9"
             />
-            <span className="font-display text-lg font-bold text-foreground hidden sm:inline">
-              WMSU HRMO Tracker
+            <span className="font-display text-lg font-bold hidden sm:inline">
+              <span className="text-foreground">WMSU </span>
+              <span className="text-primary">HRMO</span>
+              <span className="text-foreground"> Tracker</span>
             </span>
           </div>
           <Button onClick={() => navigate("/login")} className="rounded-full px-6">
@@ -68,9 +70,10 @@ const LandingPage = () => {
                 <Shield className="w-3.5 h-3.5" />
                 Internal HR System
               </div>
-              <h1 className="text-4xl md:text-5xl lg:text-[3.25rem] font-display font-bold leading-tight text-foreground">
-                WMSU{" "}
-                <span className="text-primary">HRMO Tracker</span>
+              <h1 className="text-4xl md:text-5xl lg:text-[3.25rem] font-brand font-bold leading-tight">
+                <span className="text-foreground">WMSU </span>
+                <span className="text-primary">HRMO</span>
+                <span className="text-foreground"> Tracker</span>
               </h1>
               <p className="text-lg text-muted-foreground leading-relaxed">
                 Streamlining Recruitment and Hiring Management for the
@@ -204,7 +207,7 @@ const LandingPage = () => {
               alt="WMSU Seal"
               className="w-7 h-7 brightness-200"
             />
-            <span className="font-display font-semibold">
+            <span className="font-brand font-bold">
               WMSU HRMO Tracker
             </span>
           </div>

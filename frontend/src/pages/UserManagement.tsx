@@ -4,10 +4,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createUser, deleteUser, fetchUsers, resetUserPassword, setUserStatus, updateUser } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
-import { KeyRound, Pencil, Plus, Search, Shield, ShieldCheck, Trash2, UserCheck, UserX } from "lucide-react";
+import { KeyRound, Pencil, Plus, Search, Shield, ShieldCheck, Trash2, UserCheck, UserX, Ellipsis } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -262,90 +269,104 @@ export default function UserManagement() {
         </DialogContent>
       </Dialog>
 
-      <div className="grid gap-4">
-        {filteredUsers.map((u) => {
-          const isCurrentUser = currentUser?.id === u.id;
-          return (
-            <Card key={u.id} className="card-hover">
-              <CardContent className="pt-5 pb-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      {u.role === "admin" ? (
-                        <ShieldCheck className="w-5 h-5 text-primary" />
-                      ) : (
-                        <Shield className="w-5 h-5 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="font-semibold text-foreground truncate">{u.name}</h3>
-                      <p className="text-sm text-muted-foreground truncate">{u.email}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 sm:gap-3 pl-[52px] sm:pl-0 flex-wrap">
-                    <Badge variant={u.role === "admin" ? "default" : "secondary"} className="text-xs">
-                      {u.role === "admin" ? "HR Admin" : "HR Staff"}
-                    </Badge>
-                    <Badge variant={u.isActive ? "secondary" : "outline"} className="text-xs">
-                      {u.isActive ? "Active" : "Inactive"}
-                    </Badge>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      title={u.isActive ? "Deactivate user" : "Activate user"}
-                      onClick={() => statusMutation.mutate({ id: u.id, isActive: !u.isActive })}
-                      disabled={statusMutation.isPending || (isCurrentUser && u.isActive)}
+      <Card className="border border-border/50 shadow-sm overflow-hidden">
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-b border-border/70 bg-primary text-primary-foreground hover:bg-primary">
+                  <TableHead className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Name</TableHead>
+                  <TableHead className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Email</TableHead>
+                  <TableHead className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Role</TableHead>
+                  <TableHead className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Status</TableHead>
+                  <TableHead className="h-12 px-4 text-[11px] font-semibold text-right text-primary-foreground uppercase tracking-wide">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredUsers.map((u, idx) => {
+                  const isCurrentUser = currentUser?.id === u.id;
+                  return (
+                    <TableRow
+                      key={u.id}
+                      className={`border-b border-border/20 h-14 transition-colors ${
+                        idx % 2 === 0 ? "bg-background hover:bg-muted/30" : "bg-muted/10 hover:bg-muted/20"
+                      }`}
                     >
-                      {u.isActive ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      title="Reset password"
-                      onClick={() => {
-                        setResetTarget({ id: u.id, name: u.name });
-                        setNewPassword("");
-                        setShowResetPassword(true);
-                      }}
-                    >
-                      <KeyRound className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setEditingUserId(u.id);
-                        setEditFormState({
-                          name: u.name,
-                          email: u.email,
-                          password: "",
-                          role: u.role
-                        });
-                        setShowEdit(true);
-                      }}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:text-destructive"
-                      disabled={isCurrentUser || deleteMutation.isPending}
-                      onClick={() => {
-                        if (window.confirm(`Delete ${u.name}?`)) {
-                          deleteMutation.mutate(u.id);
-                        }
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                      <TableCell className="px-4 py-3 text-sm font-medium text-foreground">{u.name}</TableCell>
+                      <TableCell className="px-4 py-3 text-sm text-muted-foreground">{u.email}</TableCell>
+                      <TableCell className="px-4 py-3">
+                        <Badge variant={u.role === "admin" ? "default" : "secondary"} className="text-xs">
+                          {u.role === "admin" ? "HR Admin" : "HR Staff"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <Badge variant={u.isActive ? "secondary" : "outline"} className="text-xs">
+                          {u.isActive ? "Active" : "Inactive"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="Open actions menu">
+                              <Ellipsis className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem
+                              onClick={() => statusMutation.mutate({ id: u.id, isActive: !u.isActive })}
+                              disabled={statusMutation.isPending || (isCurrentUser && u.isActive)}
+                            >
+                              {u.isActive ? <UserX className="w-4 h-4 mr-2" /> : <UserCheck className="w-4 h-4 mr-2" />}
+                              {u.isActive ? "Deactivate" : "Activate"}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setResetTarget({ id: u.id, name: u.name });
+                                setNewPassword("");
+                                setShowResetPassword(true);
+                              }}
+                            >
+                              <KeyRound className="w-4 h-4 mr-2" />
+                              Reset Password
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setEditingUserId(u.id);
+                                setEditFormState({
+                                  name: u.name,
+                                  email: u.email,
+                                  password: "",
+                                  role: u.role
+                                });
+                                setShowEdit(true);
+                              }}
+                            >
+                              <Pencil className="w-4 h-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              disabled={isCurrentUser || deleteMutation.isPending}
+                              onClick={() => {
+                                if (window.confirm(`Delete ${u.name}?`)) {
+                                  deleteMutation.mutate(u.id);
+                                }
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

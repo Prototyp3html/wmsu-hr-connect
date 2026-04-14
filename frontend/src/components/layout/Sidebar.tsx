@@ -67,7 +67,10 @@ export default function Sidebar({
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
-            <h1 className="text-sm font-bold text-sidebar-accent-foreground font-display truncate">WMSU HRMO</h1>
+            <h1 className="text-sm font-bold font-brand truncate">
+              <span className="text-sidebar-accent-foreground">WMSU </span>
+              <span className="text-primary">HRMO</span>
+            </h1>
             <p className="text-[10px] text-sidebar-muted truncate">HR Management Office</p>
           </div>
         )}

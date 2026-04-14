@@ -273,19 +273,19 @@ export default function Reports() {
               </div>
 
               <h3 className="font-semibold text-foreground mb-4">Applicants Summary per Position</h3>
-              <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+              <div className="overflow-x-auto border border-border/50 shadow-sm rounded-lg">
               <table className="w-full text-sm min-w-[500px]">
                 <thead>
-                  <tr className="border-b">
-                    <th className="pb-2 text-left text-muted-foreground">Position Title</th>
-                    <th className="pb-2 text-center text-muted-foreground">Total Apps</th>
-                    <th className="pb-2 text-center text-muted-foreground">Hired</th>
-                    <th className="pb-2 text-center text-muted-foreground">Rejected</th>
-                    <th className="pb-2 text-center text-muted-foreground">In Review</th>
+                  <tr className="border-b border-border/70 bg-primary text-primary-foreground">
+                    <th className="h-12 px-4 py-3 text-left text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Position Title</th>
+                    <th className="h-12 px-4 py-3 text-center text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Total Apps</th>
+                    <th className="h-12 px-4 py-3 text-center text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Hired</th>
+                    <th className="h-12 px-4 py-3 text-center text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Rejected</th>
+                    <th className="h-12 px-4 py-3 text-center text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">In Review</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {positionGroups.map(({ vacancy, apps }) => {
+                  {positionGroups.map(({ vacancy, apps }, idx) => {
                     const hiredCount = apps.filter((a) => a.status === "Hired").length;
                     const rejectedCount = apps.filter((a) => a.status === "Rejected").length;
                     const inReviewCount = apps.filter((a) => 
@@ -293,12 +293,14 @@ export default function Reports() {
                     ).length;
                     
                     return (
-                      <tr key={vacancy.id} className="border-b last:border-0">
-                        <td className="py-3 pr-3 font-medium">{vacancy.positionTitle}</td>
-                        <td className="py-3 text-center font-semibold">{apps.length}</td>
-                        <td className="py-3 text-center text-success font-medium">{hiredCount}</td>
-                        <td className="py-3 text-center text-destructive font-medium">{rejectedCount}</td>
-                        <td className="py-3 text-center text-muted-foreground">{inReviewCount}</td>
+                      <tr key={vacancy.id} className={`border-b border-border/20 h-14 transition-colors ${
+                        idx % 2 === 0 ? "bg-background hover:bg-muted/30" : "bg-muted/10 hover:bg-muted/20"
+                      }`}>
+                        <td className="px-4 py-3 pr-3 font-medium">{vacancy.positionTitle}</td>
+                        <td className="px-4 py-3 text-center font-semibold">{apps.length}</td>
+                        <td className="px-4 py-3 text-center text-success font-medium">{hiredCount}</td>
+                        <td className="px-4 py-3 text-center text-destructive font-medium">{rejectedCount}</td>
+                        <td className="px-4 py-3 text-center text-muted-foreground">{inReviewCount}</td>
                       </tr>
                     );
                   })}
@@ -333,21 +335,23 @@ export default function Reports() {
                 </Card>
               </div>
               <h3 className="font-semibold text-foreground mb-4">Hired Applicants</h3>
-              <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+              <div className="overflow-x-auto border border-border/50 shadow-sm rounded-lg">
               <table className="w-full text-sm min-w-[400px]">
                 <thead>
-                  <tr className="border-b">
-                    <th className="pb-2 text-left text-muted-foreground">Applicant</th>
-                    <th className="pb-2 text-left text-muted-foreground">Position</th>
-                    <th className="pb-2 text-center text-muted-foreground whitespace-nowrap hidden sm:table-cell">Date Applied</th>
+                  <tr className="border-b border-border/70 bg-primary text-primary-foreground">
+                    <th className="h-12 px-4 py-3 text-left text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Applicant</th>
+                    <th className="h-12 px-4 py-3 text-left text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Position</th>
+                    <th className="h-12 px-4 py-3 text-center text-[11px] font-semibold text-primary-foreground uppercase tracking-wide whitespace-nowrap hidden sm:table-cell">Date Applied</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {hired.map((app) => (
-                    <tr key={app.id} className="border-b last:border-0">
-                      <td className="py-2 pr-3 font-medium whitespace-nowrap">{getApplicantName(app.applicantId)}</td>
-                      <td className="py-2 pr-3 text-muted-foreground">{getVacancyTitle(app.vacancyId)}</td>
-                      <td className="py-2 text-center text-muted-foreground whitespace-nowrap hidden sm:table-cell">{app.dateApplied}</td>
+                  {hired.map((app, idx) => (
+                    <tr key={app.id} className={`border-b border-border/20 h-14 transition-colors ${
+                      idx % 2 === 0 ? "bg-background hover:bg-muted/30" : "bg-muted/10 hover:bg-muted/20"
+                    }`}>
+                      <td className="px-4 py-3 pr-3 font-medium whitespace-nowrap">{getApplicantName(app.applicantId)}</td>
+                      <td className="px-4 py-3 pr-3 text-muted-foreground">{getVacancyTitle(app.vacancyId)}</td>
+                      <td className="px-4 py-3 text-center text-muted-foreground whitespace-nowrap hidden sm:table-cell">{app.dateApplied}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -381,21 +385,23 @@ export default function Reports() {
                 </Card>
               </div>
               <h3 className="font-semibold text-foreground mb-4">Rejected Applicants</h3>
-              <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+              <div className="overflow-x-auto border border-border/50 shadow-sm rounded-lg">
               <table className="w-full text-sm min-w-[400px]">
                 <thead>
-                  <tr className="border-b">
-                    <th className="pb-2 text-left text-muted-foreground">Applicant</th>
-                    <th className="pb-2 text-left text-muted-foreground">Position</th>
-                    <th className="pb-2 text-left text-muted-foreground hidden sm:table-cell">Remarks</th>
+                  <tr className="border-b border-border/70 bg-primary text-primary-foreground">
+                    <th className="h-12 px-4 py-3 text-left text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Applicant</th>
+                    <th className="h-12 px-4 py-3 text-left text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Position</th>
+                    <th className="h-12 px-4 py-3 text-left text-[11px] font-semibold text-primary-foreground uppercase tracking-wide hidden sm:table-cell">Remarks</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rejected.map((app) => (
-                    <tr key={app.id} className="border-b last:border-0">
-                      <td className="py-2 pr-3 font-medium whitespace-nowrap">{getApplicantName(app.applicantId)}</td>
-                      <td className="py-2 pr-3 text-muted-foreground">{getVacancyTitle(app.vacancyId)}</td>
-                      <td className="py-2 text-muted-foreground hidden sm:table-cell">{app.remarks ?? "—"}</td>
+                  {rejected.map((app, idx) => (
+                    <tr key={app.id} className={`border-b border-border/20 h-14 transition-colors ${
+                      idx % 2 === 0 ? "bg-background hover:bg-muted/30" : "bg-muted/10 hover:bg-muted/20"
+                    }`}>
+                      <td className="px-4 py-3 pr-3 font-medium whitespace-nowrap">{getApplicantName(app.applicantId)}</td>
+                      <td className="px-4 py-3 pr-3 text-muted-foreground">{getVacancyTitle(app.vacancyId)}</td>
+                      <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{app.remarks ?? "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -420,23 +426,25 @@ export default function Reports() {
                 ))}
               </div>
               <h3 className="font-semibold text-foreground mb-4">Applications by Status</h3>
-              <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+              <div className="overflow-x-auto border border-border/50 shadow-sm rounded-lg">
               <table className="w-full text-sm min-w-[400px]">
                 <thead>
-                  <tr className="border-b">
-                    <th className="pb-2 text-left text-muted-foreground">Status</th>
-                    <th className="pb-2 text-center text-muted-foreground">Count</th>
-                    <th className="pb-2 text-center text-muted-foreground">Percentage</th>
+                  <tr className="border-b border-border/70 bg-primary text-primary-foreground">
+                    <th className="h-12 px-4 py-3 text-left text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Status</th>
+                    <th className="h-12 px-4 py-3 text-center text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Count</th>
+                    <th className="h-12 px-4 py-3 text-center text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Percentage</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {statusStats.map(({ status, count, percentage }) => (
-                    <tr key={status} className="border-b last:border-0">
-                      <td className="py-3 pr-3 align-middle">
+                  {statusStats.map(({ status, count, percentage }, idx) => (
+                    <tr key={status} className={`border-b border-border/20 h-14 transition-colors ${
+                      idx % 2 === 0 ? "bg-background hover:bg-muted/30" : "bg-muted/10 hover:bg-muted/20"
+                    }`}>
+                      <td className="px-4 py-3 align-middle">
                         <span className={`status-badge ${getStatusColor(status)}`}>{status}</span>
                       </td>
-                      <td className="py-3 text-center font-semibold">{count}</td>
-                      <td className="py-3 text-center text-muted-foreground">{percentage}%</td>
+                      <td className="px-4 py-3 text-center font-semibold">{count}</td>
+                      <td className="px-4 py-3 text-center text-muted-foreground">{percentage}%</td>
                     </tr>
                   ))}
                 </tbody>
@@ -470,23 +478,25 @@ export default function Reports() {
                 </Card>
               </div>
               <h3 className="font-semibold text-foreground mb-4">Hiring Summary per Month</h3>
-              <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+              <div className="overflow-x-auto border border-border/50 shadow-sm rounded-lg">
               <table className="w-full text-sm min-w-[350px]">
                 <thead>
-                  <tr className="border-b">
-                    <th className="pb-2 text-left text-muted-foreground">Month</th>
-                    <th className="pb-2 text-center text-muted-foreground">Apps</th>
-                    <th className="pb-2 text-center text-muted-foreground">Hired</th>
-                    <th className="pb-2 text-center text-muted-foreground">Rejected</th>
+                  <tr className="border-b border-border/70 bg-primary text-primary-foreground">
+                    <th className="h-12 px-4 py-3 text-left text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Month</th>
+                    <th className="h-12 px-4 py-3 text-center text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Apps</th>
+                    <th className="h-12 px-4 py-3 text-center text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Hired</th>
+                    <th className="h-12 px-4 py-3 text-center text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Rejected</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {monthlySummary.map((row) => (
-                    <tr key={row.month} className="border-b last:border-0">
-                      <td className="py-2 pr-3 font-medium whitespace-nowrap">{row.month}</td>
-                      <td className="py-2 text-center">{row.applications}</td>
-                      <td className="py-2 text-center text-success font-medium">{row.hired}</td>
-                      <td className="py-2 text-center text-destructive font-medium">{row.rejected}</td>
+                  {monthlySummary.map((row, idx) => (
+                    <tr key={row.month} className={`border-b border-border/20 h-14 transition-colors ${
+                      idx % 2 === 0 ? "bg-background hover:bg-muted/30" : "bg-muted/10 hover:bg-muted/20"
+                    }`}>
+                      <td className="px-4 py-3 pr-3 font-medium whitespace-nowrap">{row.month}</td>
+                      <td className="px-4 py-3 text-center">{row.applications}</td>
+                      <td className="px-4 py-3 text-center text-success font-medium">{row.hired}</td>
+                      <td className="px-4 py-3 text-center text-destructive font-medium">{row.rejected}</td>
                     </tr>
                   ))}
                 </tbody>

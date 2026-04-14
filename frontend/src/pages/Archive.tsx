@@ -133,28 +133,33 @@ export default function Archive() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b text-left">
-                    <th className="pb-3 font-medium text-muted-foreground">Applicant</th>
-                    <th className="pb-3 font-medium text-muted-foreground">Email</th>
-                    <th className="pb-3 font-medium text-muted-foreground">Position</th>
-                    <th className="pb-3 font-medium text-muted-foreground">Status</th>
-                    <th className="pb-3 font-medium text-muted-foreground">Date Applied</th>
-                    <th className="pb-3 font-medium text-muted-foreground">Remarks</th>
+                  <tr className="border-b border-border/70 bg-primary text-primary-foreground text-left">
+                    <th className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Applicant</th>
+                    <th className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Email</th>
+                    <th className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Position</th>
+                    <th className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Status</th>
+                    <th className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Date Applied</th>
+                    <th className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Remarks</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRows.map((row) => (
-                    <tr key={row.id} className="border-b last:border-0">
-                      <td className="py-3 font-medium text-foreground">{row.applicantName}</td>
-                      <td className="py-3 text-muted-foreground">{row.applicantEmail}</td>
-                      <td className="py-3 text-muted-foreground">{row.positionTitle}</td>
-                      <td className="py-3">
+                  {filteredRows.map((row, idx) => (
+                    <tr
+                      key={row.id}
+                      className={`border-b border-border/20 transition-colors ${
+                        idx % 2 === 0 ? "bg-background hover:bg-muted/30" : "bg-muted/10 hover:bg-muted/20"
+                      }`}
+                    >
+                      <td className="px-4 py-3 font-medium text-foreground">{row.applicantName}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{row.applicantEmail}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{row.positionTitle}</td>
+                      <td className="px-4 py-3">
                         <span className="status-badge bg-muted text-muted-foreground">{row.status}</span>
                       </td>
-                      <td className="py-3 text-muted-foreground">
+                      <td className="px-4 py-3 text-muted-foreground">
                         {row.dateApplied === "-" ? "-" : new Date(row.dateApplied).toLocaleDateString()}
                       </td>
-                      <td className="py-3 text-muted-foreground">{row.remarks}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{row.remarks}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -40,7 +40,11 @@ export default function Login() {
             <img src="/wmsu-seal.png" alt="WMSU seal" className="w-10 h-10" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold font-display text-foreground">WMSU HRMO Tracker</h1>
+            <h1 className="text-3xl font-bold font-brand tracking-tight">
+              <span className="text-foreground">WMSU </span>
+              <span className="text-primary">HRMO</span>
+              <span className="text-foreground"> Tracker</span>
+            </h1>
             <p className="text-sm text-muted-foreground mt-1">Human Resource Management Office Tracker</p>
             <p className="text-xs text-muted-foreground">Western Mindanao State University</p>
           </div>

@@ -968,7 +968,7 @@ export default function Applicants() {
 
       {/* Table */}
       <Card className="border border-border/50 shadow-sm overflow-hidden">
-        <CardContent className="pt-0 pb-0">
+        <CardContent className="p-0">
           {filtered.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <p className="text-sm font-medium">No applicants found</p>
@@ -978,13 +978,13 @@ export default function Applicants() {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-b border-border/70 bg-muted/40 hover:bg-muted/40">
-                    <TableHead className="h-12 px-4 text-xs font-semibold text-foreground lowercase tracking-wide">Name</TableHead>
-                    <TableHead className="h-12 px-4 text-xs font-semibold text-foreground lowercase tracking-wide">Email</TableHead>
-                    <TableHead className="h-12 px-4 text-xs font-semibold text-foreground lowercase tracking-wide">Contact</TableHead>
-                    <TableHead className="h-12 px-4 text-xs font-semibold text-foreground lowercase tracking-wide">Address</TableHead>
-                    <TableHead className="h-12 px-4 text-xs font-semibold text-foreground lowercase tracking-wide">Status</TableHead>
-                    <TableHead className="h-12 px-4 text-xs font-semibold text-right text-foreground lowercase tracking-wide">Actions</TableHead>
+                  <TableRow className="border-b border-border/70 bg-primary text-primary-foreground hover:bg-primary">
+                    <TableHead className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Name</TableHead>
+                    <TableHead className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Email</TableHead>
+                    <TableHead className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Contact</TableHead>
+                    <TableHead className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Address</TableHead>
+                    <TableHead className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Status</TableHead>
+                    <TableHead className="h-12 px-4 text-[11px] font-semibold text-right text-primary-foreground uppercase tracking-wide">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -994,23 +994,23 @@ export default function Applicants() {
                     return (
                       <TableRow
                         key={applicant.id}
-                        className={`border-b border-border/20 h-12 transition-colors ${
+                        className={`border-b border-border/20 h-14 transition-colors ${
                           idx % 2 === 0 ? "bg-background hover:bg-muted/30" : "bg-muted/10 hover:bg-muted/20"
                         }`}
                       >
-                        <TableCell className="px-4 py-2 text-sm font-medium text-foreground truncate">
+                        <TableCell className="px-4 py-3 text-sm font-medium text-foreground truncate">
                           {applicant.fullName}
                         </TableCell>
-                        <TableCell className="px-4 py-2 text-sm text-muted-foreground truncate">
+                        <TableCell className="px-4 py-3 text-sm text-muted-foreground truncate">
                           {applicant.email}
                         </TableCell>
-                        <TableCell className="px-4 py-2 text-sm text-muted-foreground">
+                        <TableCell className="px-4 py-3 text-sm text-muted-foreground">
                           {applicant.contactNumber}
                         </TableCell>
-                        <TableCell className="px-4 py-2 text-sm text-muted-foreground truncate">
+                        <TableCell className="px-4 py-3 text-sm text-muted-foreground truncate">
                           {applicant.address}
                         </TableCell>
-                        <TableCell className="px-4 py-2">
+                        <TableCell className="px-4 py-3">
                           {latestApp ? (
                             <span className={`status-badge text-xs ${getStatusColor(latestApp.status)}`}>
                               {latestApp.status}
@@ -1019,7 +1019,7 @@ export default function Applicants() {
                             <span className="text-xs text-muted-foreground italic">No app</span>
                           )}
                         </TableCell>
-                        <TableCell className="px-4 py-2 text-right">
+                        <TableCell className="px-4 py-3 text-right">
                           <div className="flex justify-end">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
