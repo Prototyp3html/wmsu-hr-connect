@@ -304,6 +304,13 @@ export default function Reports() {
                       </tr>
                     );
                   })}
+                  {positionGroups.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                        No job vacancies available.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
               </div>
@@ -354,6 +361,13 @@ export default function Reports() {
                       <td className="px-4 py-3 text-center text-muted-foreground whitespace-nowrap hidden sm:table-cell">{app.dateApplied}</td>
                     </tr>
                   ))}
+                  {hired.length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                        No hired applicants found.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
               </div>
@@ -404,6 +418,13 @@ export default function Reports() {
                       <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{app.remarks ?? "—"}</td>
                     </tr>
                   ))}
+                  {rejected.length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                        No rejected applicants found.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
               </div>
@@ -447,6 +468,13 @@ export default function Reports() {
                       <td className="px-4 py-3 text-center text-muted-foreground">{percentage}%</td>
                     </tr>
                   ))}
+                  {statusStats.every(s => s.count === 0) && (
+                    <tr>
+                      <td colSpan={3} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                        No applications found.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
               </div>
@@ -499,6 +527,13 @@ export default function Reports() {
                       <td className="px-4 py-3 text-center text-destructive font-medium">{row.rejected}</td>
                     </tr>
                   ))}
+                  {monthlySummary.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                        No applications found.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
               </div>

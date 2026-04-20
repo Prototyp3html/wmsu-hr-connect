@@ -408,13 +408,62 @@ function extractEmailFromText(text: string) {
   return "";
 }
 
+function extractPhoneNumber(text: string): string {
+  // First try labeled phone/contact fields (no stop labels - capture full line)
+  const labeledPhone = extractLabeledValue(
+    text,
+    ["phone", "mobile", "contact number", "contact", "telephone", "tel"],
+    []
+  );
+  if (labeledPhone && /\d{7,}/.test(labeledPhone)) {
+    const match = labeledPhone.match(/[\d+\s\-()]+/)?.[0];
+    if (match) {
+      const cleaned = match.replace(/\D+/g, "").slice(0, 20);
+      if (/\d{7,}/.test(cleaned)) {
+        return cleaned;
+      }
+    }
+  }
+
+  // Try Philippine format with more flexibility
+  // Matches: 09xx xxx xxxx, 09xx-xxx-xxxx, +63 9xx xxx xxxx, etc.
+  const philMatch = text.match(/(?:\+63|0)[\s-]?9[\d\s-]{8,12}/);
+  if (philMatch) {
+    const cleaned = philMatch[0].replace(/\D+/g, "").slice(0, 20);
+    if (/\d{10,}/.test(cleaned)) {
+      return cleaned;
+    }
+  }
+
+  // Try general pattern: any number with 7+ digits after phone/contact labels
+  const phoneMatch = text.match(/(?:phone|mobile|contact|tel)[:\s]+([+\d\s\-()\.]+)/i);
+  if (phoneMatch) {
+    const cleaned = phoneMatch[1].replace(/\D+/g, "").slice(0, 20);
+    if (/\d{7,}/.test(cleaned)) {
+      return cleaned;
+    }
+  }
+
+  // Try direct patterns for common formats
+  // Format: xxx-xxx-xxxx or xxx xxx xxxx (7+ digits with separators)
+  const directMatch = text.match(/\b(?:\+\d{1,3})?[\s.-]?\(?(\d{2,4})[\s.-]?(\d{2,4})[\s.-]?(\d{4,})\)?/);
+  if (directMatch) {
+    const cleaned = directMatch[0].replace(/\D+/g, "").slice(0, 20);
+    if (/\d{7,}/.test(cleaned)) {
+      return cleaned;
+    }
+  }
+
+  return "";
+}
+
 function parseApplicantDraftFromText(rawText: string): ParsedApplicantDraft {
   const text = cleanupExtractedText(rawText);
   const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
 
   const labeledEmail = extractLabeledValue(text, ["email", "e-mail"], ["phone", "mobile", "contact", "address", "education", "experience"]);
   const emailMatch = normalizeEmailCandidate(labeledEmail) || extractEmailFromText(text);
-  const phoneMatch = text.match(/(?:\+63|0)\s?9\d{2}[\s-]?\d{3}[\s-]?\d{4}/);
+  const contactNumber = extractPhoneNumber(text);
   const addressMatch = extractLabeledValue(
     text,
     ["address", "location"],
@@ -426,7 +475,7 @@ function parseApplicantDraftFromText(rawText: string): ParsedApplicantDraft {
 
   return {
     fullName: pickNameCandidate(lines).slice(0, 120),
-    contactNumber: (phoneMatch?.[0] ?? "").replace(/\s|-/g, "").slice(0, 20),
+    contactNumber: contactNumber,
     email: emailMatch.slice(0, 120),
     address: (addressMatch || pickAddressCandidate(lines)).slice(0, 200),
     educationalBackground,

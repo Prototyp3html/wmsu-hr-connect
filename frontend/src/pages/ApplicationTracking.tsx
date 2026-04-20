@@ -411,8 +411,13 @@ export default function ApplicationTracking() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
+                ))}                {filtered.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                      No applications found for the selected filters.
+                    </TableCell>
+                  </TableRow>
+                )}              </TableBody>
             </Table>
           </div>
         </CardContent>

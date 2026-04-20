@@ -522,8 +522,13 @@ export default function JobVacancies() {
                       </Dialog>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
+                ))}                {filtered.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                      No job vacancies found for the selected filters.
+                    </TableCell>
+                  </TableRow>
+                )}              </TableBody>
             </Table>
           </div>
         </CardContent>

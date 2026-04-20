@@ -362,6 +362,13 @@ export default function UserManagement() {
                     </TableRow>
                   );
                 })}
+                {filteredUsers.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                      No users found.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>
