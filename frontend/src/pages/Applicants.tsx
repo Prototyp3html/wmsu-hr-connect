@@ -848,7 +848,8 @@ export default function Applicants() {
                 <Label>Upload Documents</Label>
                 <div className="space-y-3">
                   {/* Resume */}
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground"><span className="text-red-500">*</span> Upload Resume</span>
                     <input
                       id="resume"
                       type="file"
@@ -873,13 +874,14 @@ export default function Applicants() {
                         ) : (
                           <Upload className="w-5 h-5" />
                         )}
-                        <span>{documents.resume ? documents.resume.name : "Resume"}</span>
+                        <span>{documents.resume ? documents.resume.name : "Click to upload or drag file"}</span>
                       </div>
                     </label>
                   </div>
 
                   {/* Transcript */}
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground"><span className="text-red-500">*</span> Upload Transcript</span>
                     <input
                       id="transcript"
                       type="file"
@@ -904,15 +906,15 @@ export default function Applicants() {
                         ) : (
                           <Upload className="w-5 h-5" />
                         )}
-                        <span>{documents.transcript ? documents.transcript.name : "Transcript"}</span>
+                        <span>{documents.transcript ? documents.transcript.name : "Click to upload or drag file"}</span>
                       </div>
                     </label>
                   </div>
 
                   {/* Certificates */}
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Certificates</span>
+                      <span className="text-xs font-medium text-muted-foreground"><span className="text-red-500">*</span> Upload Certificates</span>
                       {documents.certificates.length > 0 && (
                         <span className="text-xs text-muted-foreground">({documents.certificates.length} file{documents.certificates.length !== 1 ? "s" : ""})</span>
                       )}
@@ -957,14 +959,16 @@ export default function Applicants() {
                     )}
                     <label
                       htmlFor="certificate"
-                      className="flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/40 px-3 py-4 text-sm text-muted-foreground hover:border-primary/60 hover:text-foreground transition-colors cursor-pointer"
+                      className="flex items-center justify-between gap-2 rounded-lg border-2 border-dashed border-border bg-muted/40 px-3 py-4 text-sm text-muted-foreground hover:border-primary/60 hover:text-foreground transition-colors cursor-pointer"
                     >
-                      <Upload className="w-5 h-5" />
-                      <span>Add Certificate</span>
+                      <div className="flex items-center gap-2">
+                        <Upload className="w-5 h-5" />
+                        <span>Click to upload or drag files</span>
+                      </div>
                     </label>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">Scan supports: PDF, DOCX, TXT</p>
+                <p className="text-xs text-muted-foreground">Supported formats: PDF, DOCX, DOC, JPG, PNG</p>
                 <Button
                   type="button"
                   variant="secondary"
@@ -975,6 +979,7 @@ export default function Applicants() {
                   {isScanningResume ? "Scanning Resume..." : "Scan Resume & Autofill Fields"}
                 </Button>
               </div>
+
               <div className="flex justify-end gap-3">
                 <Button
                   variant="outline"
@@ -1091,7 +1096,8 @@ export default function Applicants() {
                   <p className="text-xs font-medium text-muted-foreground">Add New Documents</p>
                   
                   {/* Resume */}
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground"><span className="text-red-500">*</span> Upload Resume</span>
                     <input
                       id="edit-resume"
                       type="file"
@@ -1117,13 +1123,14 @@ export default function Applicants() {
                         ) : (
                           <Upload className="w-4 h-4" />
                         )}
-                        <span>{editDocuments.resume ? editDocuments.resume.name : "Replace Resume"}</span>
+                        <span>{editDocuments.resume ? editDocuments.resume.name : "Click to upload or drag file"}</span>
                       </div>
                     </label>
                   </div>
 
                   {/* Transcript */}
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground"><span className="text-red-500">*</span> Upload Transcript</span>
                     <input
                       id="edit-transcript"
                       type="file"
@@ -1149,13 +1156,19 @@ export default function Applicants() {
                         ) : (
                           <Upload className="w-4 h-4" />
                         )}
-                        <span>{editDocuments.transcript ? editDocuments.transcript.name : "Replace Transcript"}</span>
+                        <span>{editDocuments.transcript ? editDocuments.transcript.name : "Click to upload or drag file"}</span>
                       </div>
                     </label>
                   </div>
 
                   {/* Certificates */}
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground"><span className="text-red-500">*</span> Upload Certificates</span>
+                      {editDocuments.certificates.length > 0 && (
+                        <span className="text-xs text-muted-foreground">({editDocuments.certificates.length} file{editDocuments.certificates.length !== 1 ? "s" : ""})</span>
+                      )}
+                    </div>
                     <input
                       id="edit-certificate"
                       type="file"
@@ -1170,11 +1183,11 @@ export default function Applicants() {
                       className="hidden"
                     />
                     {editDocuments.certificates.length > 0 && (
-                      <div className="space-y-1">
+                      <div className="space-y-2">
                         {editDocuments.certificates.map((cert, idx) => (
-                          <div key={idx} className="flex items-center justify-between gap-2 rounded-lg border border-green-500 bg-green-50 px-3 py-1 text-xs text-green-700">
+                          <div key={idx} className="flex items-center justify-between gap-2 rounded-lg border border-green-500 bg-green-50 px-3 py-2 text-sm text-green-700">
                             <div className="flex items-center gap-2 flex-1 min-w-0">
-                              <Check className="w-3 h-3 text-green-600 shrink-0" />
+                              <Check className="w-4 h-4 text-green-600 shrink-0" />
                               <span className="truncate">{cert.name}</span>
                             </div>
                             <button
@@ -1195,10 +1208,12 @@ export default function Applicants() {
                     )}
                     <label
                       htmlFor="edit-certificate"
-                      className="flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground hover:border-primary/60 transition-colors cursor-pointer"
+                      className="flex items-center justify-between gap-2 rounded-lg border-2 border-dashed border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground hover:border-primary/60 transition-colors cursor-pointer"
                     >
-                      <Upload className="w-4 h-4" />
-                      <span>Add New Certificate</span>
+                      <div className="flex items-center gap-2">
+                        <Upload className="w-4 h-4" />
+                        <span>Click to upload or drag files</span>
+                      </div>
                     </label>
                   </div>
                 </div>
