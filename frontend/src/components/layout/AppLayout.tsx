@@ -4,6 +4,7 @@ import { Navigate, Outlet } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { LabelText } from "@/components/ui/typography";
 import { Menu } from "lucide-react";
 import { useState } from "react";
 
@@ -23,11 +24,11 @@ export default function AppLayout() {
                 <img src="/wmsu-seal.png" alt="WMSU seal" className="w-6 h-6" />
               </div>
               <div>
-                <p className="text-sm font-bold font-brand">
+                <p className="text-sm font-bold">
                   <span className="text-foreground">WMSU </span>
                   <span className="text-primary">HRMO</span>
                 </p>
-                <p className="text-[11px] text-muted-foreground">HR Management Office</p>
+                <LabelText className="text-[11px] text-muted-foreground">HR Management Office</LabelText>
               </div>
             </div>
             <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { BodyText, LabelText } from "@/components/ui/typography";
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "staff"] },
@@ -67,11 +68,11 @@ export default function Sidebar({
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
-            <h1 className="text-sm font-bold font-brand truncate">
+            <h1 className="text-sm font-bold truncate">
               <span className="text-sidebar-accent-foreground">WMSU </span>
               <span className="text-primary">HRMO</span>
             </h1>
-            <p className="text-[10px] text-sidebar-muted truncate">HR Management Office</p>
+            <LabelText className="text-[10px] text-sidebar-muted truncate">HR Management Office</LabelText>
           </div>
         )}
       </div>
@@ -105,8 +106,8 @@ export default function Sidebar({
       <div className="border-t border-sidebar-border p-3 space-y-2">
         {!collapsed && user && (
           <div className="px-2 py-1">
-            <p className="text-xs font-medium text-sidebar-accent-foreground truncate">{user.name}</p>
-            <p className="text-[10px] text-sidebar-muted truncate capitalize">{user.role === "admin" ? "HR Admin" : "HR Staff"}</p>
+            <BodyText className="text-xs font-medium text-sidebar-accent-foreground truncate">{user.name}</BodyText>
+            <LabelText className="text-[10px] text-sidebar-muted truncate capitalize">{user.role === "admin" ? "HR Admin" : "HR Staff"}</LabelText>
           </div>
         )}
         <button

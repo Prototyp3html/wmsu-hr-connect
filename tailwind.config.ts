@@ -21,6 +21,13 @@ export default {
         display: ['Sora', 'system-ui', 'sans-serif'],
         brand: ['Source Serif Pro', 'serif'],
       },
+      fontSize: {
+        display: ["24px", { lineHeight: "1.25", fontWeight: "700" }],
+        section: ["16px", { lineHeight: "1.35", fontWeight: "600" }],
+        metric: ["24px", { lineHeight: "1.15", fontWeight: "700" }],
+        label: ["9px", { lineHeight: "1.3", letterSpacing: "0.04em", fontWeight: "500" }],
+        body: ["13px", { lineHeight: "1.5", fontWeight: "400" }],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

@@ -2,21 +2,81 @@ import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import { query } from "./db.js";
 
-const departments = [];
+type SeedDepartment = {
+  id: string;
+  name: string;
+};
 
-const users = [];
+type SeedUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+};
+
+type SeedJobVacancy = {
+  id: string;
+  positionTitle: string;
+  departmentId: string;
+  salaryGrade: number;
+  qualifications: string;
+  postingDate: string;
+  closingDate: string;
+  status: string;
+};
+
+type SeedApplicant = {
+  id: string;
+  fullName: string;
+  contactNumber: string;
+  email: string;
+  address: string;
+  educationalBackground: string;
+  workExperience: string;
+};
+
+type SeedApplication = {
+  id: string;
+  applicantId: string;
+  vacancyId: string;
+  status: string;
+  dateApplied: string;
+  remarks?: string | null;
+};
+
+type SeedStatusHistory = {
+  id: string;
+  applicationId: string;
+  status: string;
+  remarks: string;
+  updatedBy: string;
+  updatedAt: string;
+};
+
+type SeedEvaluation = {
+  id: string;
+  applicationId: string;
+  totalScore: number;
+  remarks: string;
+  evaluatedBy: string;
+  evaluatedAt: string;
+};
+
+const departments: SeedDepartment[] = [];
+
+const users: SeedUser[] = [];
 
 const TEST_ACCOUNT_PASSWORD = "password123";
 
-const jobVacancies = [];
+const jobVacancies: SeedJobVacancy[] = [];
 
-const applicants = [];
+const applicants: SeedApplicant[] = [];
 
-const applications = [];
+const applications: SeedApplication[] = [];
 
-const statusHistory = [];
+const statusHistory: SeedStatusHistory[] = [];
 
-const evaluations = [];
+const evaluations: SeedEvaluation[] = [];
 
 export async function seedIfEmpty() {
   const userCount = await query<{ count: string }>("SELECT COUNT(*) as count FROM users");

@@ -1,10 +1,14 @@
 import type { Config } from "tailwindcss";
+import tailwindcssAnimate from "tailwindcss-animate";
 
 export default {
   darkMode: ["class"],
   content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
   prefix: "",
   theme: {
+    fontFamily: {
+      sans: ["Inter", "system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
+    },
     container: {
       center: true,
       padding: "2rem",
@@ -13,9 +17,12 @@ export default {
       },
     },
     extend: {
-      fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['Playfair Display', 'serif'],
+      fontSize: {
+        display: ["24px", { lineHeight: "1.25", fontWeight: "700" }],
+        section: ["16px", { lineHeight: "1.35", fontWeight: "600" }],
+        metric: ["24px", { lineHeight: "1.15", fontWeight: "700" }],
+        label: ["9px", { lineHeight: "1.3", letterSpacing: "0.04em", fontWeight: "500" }],
+        body: ["13px", { lineHeight: "1.5", fontWeight: "400" }],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -109,5 +116,5 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [tailwindcssAnimate],
 } satisfies Config;

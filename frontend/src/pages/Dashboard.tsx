@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { fetchApplicants, fetchApplications, fetchEvaluations, fetchJobs, fetchReportsSummary } from "@/lib/api";
 import { allStatuses, getStatusColor } from "@/lib/status";
+import { BodyText, LabelText, MetricValue, PageTitle, SectionTitle } from "@/components/ui/typography";
 import { Award, Briefcase, FilterX, SlidersHorizontal, TrendingUp, UserCheck, Users } from "lucide-react";
 import { Area, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
@@ -24,13 +25,13 @@ function TrendTooltip({ active, payload, label }: { active?: boolean; payload?: 
 
   return (
     <div className="rounded-lg border border-border bg-card/95 shadow-md px-3 py-2 text-xs space-y-1">
-      <p className="font-semibold text-foreground">{label}</p>
-      <p className="text-muted-foreground">
+      <BodyText className="font-semibold text-foreground">{label}</BodyText>
+      <BodyText className="text-muted-foreground">
         <span className="font-medium text-foreground">Applications:</span> {applications}
-      </p>
-      <p className="text-muted-foreground">
+      </BodyText>
+      <BodyText className="text-muted-foreground">
         <span className="font-medium text-foreground">Hired:</span> {hired}
-      </p>
+      </BodyText>
     </div>
   );
 }
@@ -231,19 +232,19 @@ export default function Dashboard() {
       <div className="rounded-2xl border border-border/60 bg-gradient-to-br from-card via-card to-accent/20 p-5 sm:p-6 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h1 className="text-3xl font-bold font-display text-foreground leading-tight">Dashboard</h1>
-            <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
+            <PageTitle className="leading-tight">Dashboard</PageTitle>
+            <BodyText className="mt-2 max-w-2xl text-muted-foreground">
               Welcome back, {user?.name}. Monitor hiring performance, spot bottlenecks, and track applicant progress in one place.
-            </p>
+            </BodyText>
           </div>
           <div className="grid grid-cols-2 gap-2 min-w-[220px]">
             <div className="rounded-xl border border-border/70 bg-background/70 px-3 py-2">
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Filtered</p>
-              <p className="text-lg font-semibold text-foreground">{filteredApplications.length}</p>
+              <LabelText>Filtered</LabelText>
+              <MetricValue className="text-lg">{filteredApplications.length}</MetricValue>
             </div>
             <div className="rounded-xl border border-border/70 bg-background/70 px-3 py-2">
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Active Filters</p>
-              <p className="text-lg font-semibold text-foreground">{activeFilters}</p>
+              <LabelText>Active Filters</LabelText>
+              <MetricValue className="text-lg">{activeFilters}</MetricValue>
             </div>
           </div>
         </div>
@@ -254,7 +255,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between gap-3 mb-4">
             <div className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
               <SlidersHorizontal className="w-4 h-4 text-primary" />
-              Dashboard Filters
+              <SectionTitle>Dashboard Filters</SectionTitle>
             </div>
             <button
               type="button"
@@ -268,7 +269,7 @@ export default function Dashboard() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
             <div className="space-y-1.5">
-              <label className="text-[11px] uppercase tracking-wide font-medium text-muted-foreground">Month</label>
+              <LabelText>Month</LabelText>
               <Select value={filterMonth} onValueChange={setFilterMonth}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -282,7 +283,7 @@ export default function Dashboard() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-[11px] uppercase tracking-wide font-medium text-muted-foreground">Job Type</label>
+              <LabelText>Job Type</LabelText>
               <Select value={filterJobType} onValueChange={setFilterJobType}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -294,7 +295,7 @@ export default function Dashboard() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-[11px] uppercase tracking-wide font-medium text-muted-foreground">Status</label>
+              <LabelText>Status</LabelText>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -306,7 +307,7 @@ export default function Dashboard() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-[11px] uppercase tracking-wide font-medium text-muted-foreground">Position Level</label>
+              <LabelText>Position Level</LabelText>
               <Select value={filterPositionLevel} onValueChange={setFilterPositionLevel}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -317,7 +318,7 @@ export default function Dashboard() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-[11px] uppercase tracking-wide font-medium text-muted-foreground">Top Applicants</label>
+              <LabelText>Top Applicants</LabelText>
               <Select value={sortBy} onValueChange={setSortBy}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -336,8 +337,8 @@ export default function Dashboard() {
             <CardContent className="pt-5 pb-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">{card.label}</p>
-                  <p className="mt-2 text-3xl font-bold text-foreground">{card.value}</p>
+                  <LabelText>{card.label}</LabelText>
+                  <MetricValue className="mt-2">{card.value}</MetricValue>
                 </div>
                 <div className={`${card.bg} p-2.5 rounded-xl ring-1 ring-border/50`}>
                   <card.icon className={`w-5 h-5 ${card.color}`} />
@@ -353,8 +354,8 @@ export default function Dashboard() {
           <CardContent className="pt-5">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-base font-semibold text-foreground">Hiring Trend</h3>
-                <p className="text-xs text-muted-foreground">Applications vs hires over time</p>
+                <SectionTitle>Hiring Trend</SectionTitle>
+                <BodyText className="text-xs text-muted-foreground">Applications vs hires over time</BodyText>
               </div>
             </div>
             <div className="rounded-xl border border-border/60 bg-gradient-to-b from-muted/25 to-background p-3">
@@ -386,7 +387,7 @@ export default function Dashboard() {
 
         <Card className="xl:col-span-4 border border-border/60 shadow-sm">
           <CardContent className="pt-5">
-            <h3 className="text-base font-semibold mb-4 text-foreground">Job Summary</h3>
+            <SectionTitle className="mb-4">Job Summary</SectionTitle>
             <div className="relative rounded-xl border border-border/60 bg-muted/20 p-2">
               <ResponsiveContainer width="100%" height={230}>
                 <PieChart>
@@ -399,8 +400,8 @@ export default function Dashboard() {
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <p className="text-xs text-muted-foreground">Total</p>
-                <p className="text-2xl font-bold text-foreground">{totalVacancies}</p>
+                <LabelText>Total</LabelText>
+                <MetricValue className="text-2xl">{totalVacancies}</MetricValue>
               </div>
             </div>
           </CardContent>
@@ -411,17 +412,17 @@ export default function Dashboard() {
         <Card className="xl:col-span-8 border border-border/60 shadow-sm">
           <CardContent className="pt-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-foreground">Recent Applications</h3>
-              <span className="text-xs text-muted-foreground">Showing latest 8 entries</span>
+              <SectionTitle>Recent Applications</SectionTitle>
+              <LabelText className="text-muted-foreground">Showing latest 8 entries</LabelText>
             </div>
             <div className="overflow-auto max-h-[340px] rounded-lg border border-border/60 bg-background">
               <table className="w-full text-sm min-w-[500px]">
                 <thead className="sticky top-0 bg-card z-10">
                   <tr className="border-b text-left">
-                    <th className="py-3 px-3 font-medium text-muted-foreground">Applicant</th>
-                    <th className="py-3 px-3 font-medium text-muted-foreground">Position</th>
-                    <th className="py-3 px-3 font-medium text-muted-foreground hidden sm:table-cell">Date Applied</th>
-                    <th className="py-3 px-3 font-medium text-muted-foreground">Status</th>
+                    <th className="py-3 px-3 font-medium text-muted-foreground"><LabelText>Applicant</LabelText></th>
+                    <th className="py-3 px-3 font-medium text-muted-foreground"><LabelText>Position</LabelText></th>
+                    <th className="py-3 px-3 font-medium text-muted-foreground hidden sm:table-cell"><LabelText>Date Applied</LabelText></th>
+                    <th className="py-3 px-3 font-medium text-muted-foreground"><LabelText>Status</LabelText></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -447,17 +448,17 @@ export default function Dashboard() {
 
         <Card className="xl:col-span-4 border border-border/60 shadow-sm">
           <CardContent className="pt-5">
-            <h3 className="text-base font-semibold mb-4 text-foreground">Position Level Performance</h3>
+            <SectionTitle className="mb-4">Position Level Performance</SectionTitle>
             <div className="space-y-4">
               {positionLevelData.map((level) => (
                 <div key={level.name} className="border rounded-lg p-3 hover:bg-accent/20 transition-all duration-200">
                   <div className="flex justify-between items-start mb-2">
-                    <span className="font-medium text-sm text-foreground">{level.name}</span>
-                    <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">{level.evaluated}/{level.total}</span>
+                    <BodyText className="font-medium text-foreground">{level.name}</BodyText>
+                    <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded [font-variant-numeric:tabular-nums]">{level.evaluated}/{level.total}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Avg Score:</span>
-                    <span className="text-sm font-bold text-foreground">{level.avgScore}</span>
+                    <LabelText className="text-muted-foreground">Avg Score</LabelText>
+                    <MetricValue className="text-base">{level.avgScore}</MetricValue>
                   </div>
                   <div className="mt-2 bg-secondary h-2 rounded overflow-hidden">
                     <div className="bg-success h-full transition-all" style={{ width: level.total > 0 ? `${level.avgScore}%` : "0%" }} />
@@ -471,25 +472,25 @@ export default function Dashboard() {
 
       <Card className="border border-border/60 shadow-sm">
         <CardContent className="pt-5">
-          <h3 className="text-base font-semibold mb-4 text-foreground flex items-center gap-2">
+          <SectionTitle className="mb-4 flex items-center gap-2">
             <Award className="w-4 h-4" /> Top Rated Applicants
-          </h3>
+          </SectionTitle>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {topRatedApplicants.length > 0 ? (
               topRatedApplicants.map((app) => (
                 <div key={app.applicationId} className="border rounded-lg p-3 hover:bg-accent/30 transition-all duration-200">
                   <div className="flex justify-between items-start mb-1">
                     <div>
-                      <p className="font-medium text-sm text-foreground">{app.applicantName}</p>
-                      <p className="text-xs text-muted-foreground">{app.position}</p>
+                      <BodyText className="font-medium text-foreground">{app.applicantName}</BodyText>
+                      <LabelText className="text-muted-foreground">{app.position}</LabelText>
                     </div>
-                    <span className="text-lg font-bold text-success">{app.score}</span>
+                    <MetricValue className="text-lg text-success">{app.score}</MetricValue>
                   </div>
                   <span className={`rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(app.status)}`}>{app.status}</span>
                 </div>
               ))
             ) : (
-              <p className="text-sm text-muted-foreground italic">No evaluated applicants yet</p>
+              <BodyText className="italic text-muted-foreground">No evaluated applicants yet</BodyText>
             )}
           </div>
         </CardContent>
