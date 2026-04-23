@@ -1,5 +1,7 @@
 {
   "name": "wmsu-hr-connect",
+  "version": "1.0.0",
+  "description": "WMSU HR Connect",
   "private": true,
   "workspaces": [
     "frontend",
@@ -10,8 +12,26 @@
     "dev:frontend": "npm run -w frontend dev",
     "dev:backend": "npm run -w backend dev",
     "build": "npm run -w frontend build",
+    "build:backend": "npm run -w backend build",
+    "build:web": "npm run build:backend && npm run build",
+    "start:web": "node backend/dist/index.js",
     "test": "npm run -w frontend test",
     "lint": "npm run -w frontend lint"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^7.2.0",
+    "jsonwebtoken": "^9.0.2",
+    "mammoth": "^1.12.0",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^8.0.4",
+    "pdf-parse": "^2.4.5",
+    "pg": "^8.13.1",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

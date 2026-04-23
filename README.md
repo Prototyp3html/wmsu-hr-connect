@@ -41,6 +41,33 @@ npm run dev:frontend
 npm run dev:backend
 ```
 
+## Web app mode
+
+Build the frontend and backend into a single browser-hosted app:
+
+```sh
+npm run build:web
+```
+
+Start the web app server:
+
+```sh
+npm run start:web
+```
+
+One-click launcher for non-technical users:
+
+- Double-click `start-web-app.cmd`
+- It starts the local server and opens the app in your browser
+
+This is the recommended option if you want it to feel like a normal web app without paying for code signing yet.
+
+Desktop icon setup:
+
+- Double-click `Create Desktop Shortcut.cmd` once
+- It creates a `WMSU HR Connect` icon on the desktop
+- HR staff can then open the system by clicking that desktop icon
+
 ## Workspace layout
 
 - frontend/ - React + TypeScript + Vite UI

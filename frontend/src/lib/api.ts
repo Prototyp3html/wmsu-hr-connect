@@ -12,7 +12,18 @@ import type {
   ParsedApplicantDraft
 } from "./types";
 
-const API_BASE = import.meta.env.VITE_API_URL ?? "/api";
+const API_BASE = (() => {
+  const configuredApi = import.meta.env.VITE_API_URL;
+  if (configuredApi) {
+    return configuredApi;
+  }
+
+  if (typeof window !== "undefined" && window.location.protocol === "file:") {
+    return "http://127.0.0.1:4000/api";
+  }
+
+  return "/api";
+})();
 const TOKEN_KEY = "wmsu_hr_token";
 
 export function getFileUrl(path: string): string {

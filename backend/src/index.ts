@@ -56,10 +56,16 @@ app.use(
 );
 app.use(express.json({ limit: "1mb" }));
 
-const uploadDir = path.resolve(__dirname, "../uploads");
+const uploadDir = process.env.UPLOAD_DIR
+  ? path.resolve(process.env.UPLOAD_DIR)
+  : path.resolve(__dirname, "../uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
+
+const frontendDistDir = path.resolve(__dirname, "../../frontend/dist");
+const frontendIndexFile = path.join(frontendDistDir, "index.html");
+const frontendBuildExists = fs.existsSync(frontendIndexFile);
 
 const storage = multer.diskStorage({
   destination: (_req: Request, _file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) =>
@@ -81,6 +87,18 @@ const parseUpload = multer({
 });
 
 app.use("/uploads", express.static(uploadDir));
+
+if (frontendBuildExists) {
+  app.use(express.static(frontendDistDir));
+
+  app.get(/^\/(?!api|uploads).*/, (_req, res) => {
+    res.sendFile(frontendIndexFile);
+  });
+} else {
+  app.get("/", (_req, res) => {
+    res.status(503).send("Frontend build not found. Run npm run build:web first.");
+  });
+}
 
 interface AuthUser {
   id: string;
