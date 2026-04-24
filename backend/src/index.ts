@@ -1221,7 +1221,9 @@ app.patch("/api/applications/:id/status", requireAuth, asyncHandler(async (req: 
     documentsComplete,
     examScheduleDate,
     interviewScheduleDate,
-    finalEvaluationDate
+    finalEvaluationDate,
+    allowWorkflowSkip,
+    notifyApplicant
   } = req.body as {
     status?: string;
     remarks?: string;
@@ -1229,6 +1231,8 @@ app.patch("/api/applications/:id/status", requireAuth, asyncHandler(async (req: 
     examScheduleDate?: string;
     interviewScheduleDate?: string;
     finalEvaluationDate?: string;
+    allowWorkflowSkip?: boolean;
+    notifyApplicant?: boolean;
   };
 
   if (!status) {
@@ -1242,7 +1246,16 @@ app.patch("/api/applications/:id/status", requireAuth, asyncHandler(async (req: 
     return;
   }
 
-  if (!canTransitionStatus(existing.status, status)) {
+  if (
+    allowWorkflowSkip === true
+    && req.user?.role !== "admin"
+    && req.user?.role !== "staff"
+  ) {
+    res.status(403).json({ error: "Only staff or admin can bypass workflow order." });
+    return;
+  }
+
+  if (!canTransitionStatus(existing.status, status) && allowWorkflowSkip !== true) {
     res.status(400).json({ error: `Invalid status transition from ${existing.status} to ${status}` });
     return;
   }
@@ -1313,8 +1326,10 @@ app.patch("/api/applications/:id/status", requireAuth, asyncHandler(async (req: 
     [req.params.id]
   );
 
+  const shouldNotifyApplicant = notifyApplicant !== false;
+
   let notificationSent = false;
-  if (emailContext) {
+  if (shouldNotifyApplicant && emailContext) {
     try {
       notificationSent = await sendApplicationStatusEmail({
         applicantEmail: emailContext.email,
@@ -1333,7 +1348,12 @@ app.patch("/api/applications/:id/status", requireAuth, asyncHandler(async (req: 
     }
   }
 
-  res.json({ application: mapApplication(result.rows[0]), history, notificationSent });
+  res.json({
+    application: mapApplication(result.rows[0]),
+    history,
+    notificationSent,
+    notificationSkipped: !shouldNotifyApplicant
+  });
 }));
 
 app.get("/api/status-history", asyncHandler(async (req, res) => {

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchApplicants, fetchApplications, fetchJobs, fetchStatusHistory, updateApplicationStatus } from "@/lib/api";
 import { allStatuses, getStatusColor, getNextSuggestedStatus } from "@/lib/status";
@@ -41,6 +42,8 @@ export default function ApplicationTracking() {
     examScheduleDate: string;
     interviewScheduleDate: string;
     finalEvaluationDate: string;
+    allowWorkflowSkip: boolean;
+    notifyApplicant: boolean;
   } | null>(null);
   const [suggestedApp, setSuggestedApp] = useState<Application | null>(null);
 
@@ -189,7 +192,9 @@ export default function ApplicationTracking() {
                           documentsComplete: Boolean(app.documentsComplete),
                           examScheduleDate: app.examScheduleDate ?? "",
                           interviewScheduleDate: app.interviewScheduleDate ?? "",
-                          finalEvaluationDate: app.finalEvaluationDate ?? ""
+                          finalEvaluationDate: app.finalEvaluationDate ?? "",
+                          allowWorkflowSkip: false,
+                          notifyApplicant: true
                         });
                       } else {
                         setStatusForm(null);
@@ -220,6 +225,30 @@ export default function ApplicationTracking() {
                                 {allStatuses.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                               </SelectContent>
                             </Select>
+                          </div>
+                          <div className="rounded-md border p-3 space-y-3 bg-muted/20">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <Label htmlFor={`skip-workflow-${app.id}`}>Skip workflow order</Label>
+                                <p className="text-xs text-muted-foreground">Allow direct jump to Hired, Rejected, For Final Evaluation, or For Examination.</p>
+                              </div>
+                              <Switch
+                                id={`skip-workflow-${app.id}`}
+                                checked={statusForm?.allowWorkflowSkip ?? false}
+                                onCheckedChange={(checked) => setStatusForm((prev) => prev ? ({ ...prev, allowWorkflowSkip: checked }) : prev)}
+                              />
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <Label htmlFor={`notify-applicant-${app.id}`}>Send email to applicant</Label>
+                                <p className="text-xs text-muted-foreground">Turn off if you do not want to send status email for this update.</p>
+                              </div>
+                              <Switch
+                                id={`notify-applicant-${app.id}`}
+                                checked={statusForm?.notifyApplicant ?? true}
+                                onCheckedChange={(checked) => setStatusForm((prev) => prev ? ({ ...prev, notifyApplicant: checked }) : prev)}
+                              />
+                            </div>
                           </div>
                           {statusForm?.status === "Under Initial Screening" && (
                             <div className="space-y-2 rounded-md border p-3 bg-muted/30">
@@ -301,7 +330,9 @@ export default function ApplicationTracking() {
                                 documentsComplete: statusForm.documentsComplete,
                                 examScheduleDate: statusForm.examScheduleDate || undefined,
                                 interviewScheduleDate: statusForm.interviewScheduleDate || undefined,
-                                finalEvaluationDate: statusForm.finalEvaluationDate || undefined
+                                finalEvaluationDate: statusForm.finalEvaluationDate || undefined,
+                                allowWorkflowSkip: statusForm.allowWorkflowSkip,
+                                notifyApplicant: statusForm.notifyApplicant
                               });
                             }}
                             disabled={updateMutation.isPending}

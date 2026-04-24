@@ -251,6 +251,8 @@ export async function updateApplicationStatus(payload: {
   examScheduleDate?: string;
   interviewScheduleDate?: string;
   finalEvaluationDate?: string;
+  allowWorkflowSkip?: boolean;
+  notifyApplicant?: boolean;
 }) {
   return apiFetch<{ application: Application; history: StatusHistory }>(`/applications/${payload.id}/status`, {
     method: "PATCH",
@@ -260,7 +262,9 @@ export async function updateApplicationStatus(payload: {
       documentsComplete: payload.documentsComplete,
       examScheduleDate: payload.examScheduleDate,
       interviewScheduleDate: payload.interviewScheduleDate,
-      finalEvaluationDate: payload.finalEvaluationDate
+      finalEvaluationDate: payload.finalEvaluationDate,
+      allowWorkflowSkip: payload.allowWorkflowSkip,
+      notifyApplicant: payload.notifyApplicant
     })
   });
 }
