@@ -13,7 +13,7 @@ import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
 import nodemailer from "nodemailer";
 import { initDb, query } from "./db.js";
-import { ensureTestAccounts, seedIfEmpty } from "./seed.js";
+import { ensureDepartments, ensureTestAccounts, seedIfEmpty } from "./seed.js";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 
@@ -1610,6 +1610,7 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 async function start() {
   await initDb();
   // await seedIfEmpty(); // All sample data has been removed
+  await ensureDepartments();
   await ensureTestAccounts();
   app.listen(PORT, () => {
     console.log(`API listening on http://localhost:${PORT}`);
