@@ -8,13 +8,21 @@ import { Search } from "lucide-react";
 const actionBadgeStyles: Record<string, string> = {
   login_success: "bg-success/10 text-success",
   login_failed: "bg-destructive/10 text-destructive",
-  logout: "bg-warning/10 text-warning"
+  logout: "bg-warning/10 text-warning",
+  status_email_sent: "bg-emerald-100 text-emerald-700",
+  status_email_failed: "bg-red-100 text-red-700",
+  status_email_disabled: "bg-slate-200 text-slate-700",
+  status_email_skipped: "bg-amber-100 text-amber-700"
 };
 
 const actionLabels: Record<string, string> = {
   login_success: "Login",
   login_failed: "Login Failed",
-  logout: "Logout"
+  logout: "Logout",
+  status_email_sent: "Status Email Sent",
+  status_email_failed: "Status Email Failed",
+  status_email_disabled: "Status Email Disabled",
+  status_email_skipped: "Status Email Skipped"
 };
 
 function formatLoginSource(ip?: string) {
@@ -60,12 +68,18 @@ export default function AuditLogs() {
     const needle = search.toLowerCase();
     return logs.filter((log) => {
       const detailEmail = typeof log.details?.email === "string" ? log.details.email : "";
+      const detailTo = typeof log.details?.to === "string" ? log.details.to : "";
+      const detailSubject = typeof log.details?.subject === "string" ? log.details.subject : "";
+      const detailBodyPreview = typeof log.details?.bodyPreview === "string" ? log.details.bodyPreview : "";
       return (
         log.userName?.toLowerCase().includes(needle) ||
         log.userEmail?.toLowerCase().includes(needle) ||
         log.action.toLowerCase().includes(needle) ||
         log.ip?.toLowerCase().includes(needle) ||
-        detailEmail.toLowerCase().includes(needle)
+        detailEmail.toLowerCase().includes(needle) ||
+        detailTo.toLowerCase().includes(needle) ||
+        detailSubject.toLowerCase().includes(needle) ||
+        detailBodyPreview.toLowerCase().includes(needle)
       );
     });
   }, [logs, search]);
@@ -75,7 +89,7 @@ export default function AuditLogs() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold font-display text-foreground">Audit Logs</h1>
-          <p className="text-sm text-muted-foreground mt-1">Track login and logout activity</p>
+          <p className="text-sm text-muted-foreground mt-1">Track login activity and applicant email notifications</p>
         </div>
         <div className="relative w-full sm:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -115,11 +129,17 @@ export default function AuditLogs() {
                   <th className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Action</th>
                   <th className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Login Source</th>
                   <th className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Device / Browser</th>
+                  <th className="h-12 px-4 text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Details</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((log, idx) => {
                   const detailEmail = typeof log.details?.email === "string" ? log.details.email : null;
+                  const detailTo = typeof log.details?.to === "string" ? log.details.to : null;
+                  const detailSubject = typeof log.details?.subject === "string" ? log.details.subject : null;
+                  const detailBodyPreview = typeof log.details?.bodyPreview === "string" ? log.details.bodyPreview : null;
+                  const detailProviderResponse = typeof log.details?.providerResponse === "string" ? log.details.providerResponse : null;
+                  const detailMessageId = typeof log.details?.messageId === "string" ? log.details.messageId : null;
                   return (
                     <tr
                       key={log.id}
@@ -149,12 +169,25 @@ export default function AuditLogs() {
                       <td className="px-4 py-3 text-muted-foreground max-w-xs truncate" title={log.userAgent ?? ""}>
                         {formatDeviceBrowser(log.userAgent)}
                       </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground max-w-sm">
+                        {detailTo || detailSubject || detailBodyPreview ? (
+                          <div className="space-y-1">
+                            {detailTo && <div><span className="font-medium text-foreground">To:</span> {detailTo}</div>}
+                            {detailSubject && <div><span className="font-medium text-foreground">Subject:</span> {detailSubject}</div>}
+                            {detailBodyPreview && <div className="max-w-sm truncate" title={detailBodyPreview}>{detailBodyPreview}</div>}
+                            {detailProviderResponse && <div title={detailProviderResponse}><span className="font-medium text-foreground">SMTP:</span> {detailProviderResponse}</div>}
+                            {detailMessageId && <div title={detailMessageId}><span className="font-medium text-foreground">Message ID:</span> {detailMessageId}</div>}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-muted-foreground">
                       No audit logs found for the selected filters.
                     </td>
                   </tr>

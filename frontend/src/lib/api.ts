@@ -253,6 +253,7 @@ export async function updateApplicationStatus(payload: {
   finalEvaluationDate?: string;
   allowWorkflowSkip?: boolean;
   notifyApplicant?: boolean;
+  rejectionSubtype?: "not_qualified" | "non_teaching" | "teaching";
 }) {
   return apiFetch<{ application: Application; history: StatusHistory }>(`/applications/${payload.id}/status`, {
     method: "PATCH",
@@ -264,7 +265,8 @@ export async function updateApplicationStatus(payload: {
       interviewScheduleDate: payload.interviewScheduleDate,
       finalEvaluationDate: payload.finalEvaluationDate,
       allowWorkflowSkip: payload.allowWorkflowSkip,
-      notifyApplicant: payload.notifyApplicant
+      notifyApplicant: payload.notifyApplicant,
+      rejectionSubtype: payload.rejectionSubtype
     })
   });
 }

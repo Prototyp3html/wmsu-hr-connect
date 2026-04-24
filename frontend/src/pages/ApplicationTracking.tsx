@@ -44,6 +44,7 @@ export default function ApplicationTracking() {
     finalEvaluationDate: string;
     allowWorkflowSkip: boolean;
     notifyApplicant: boolean;
+    rejectionSubtype?: "not_qualified" | "non_teaching" | "teaching";
   } | null>(null);
   const [suggestedApp, setSuggestedApp] = useState<Application | null>(null);
 
@@ -194,7 +195,8 @@ export default function ApplicationTracking() {
                           interviewScheduleDate: app.interviewScheduleDate ?? "",
                           finalEvaluationDate: app.finalEvaluationDate ?? "",
                           allowWorkflowSkip: false,
-                          notifyApplicant: true
+                          notifyApplicant: true,
+                          rejectionSubtype: undefined
                         });
                       } else {
                         setStatusForm(null);
@@ -293,6 +295,22 @@ export default function ApplicationTracking() {
                               />
                             </div>
                           )}
+                          {statusForm?.status === "Rejected" && (
+                            <div className="space-y-2 rounded-md border p-3 bg-amber-50">
+                              <Label className="font-semibold">Rejection Type</Label>
+                              <p className="text-xs text-muted-foreground mb-2">Select the rejection template to send to the applicant</p>
+                              <Select value={statusForm.rejectionSubtype ?? ""} onValueChange={(value) => setStatusForm((prev) => prev ? ({ ...prev, rejectionSubtype: value as "not_qualified" | "non_teaching" | "teaching" }) : prev)}>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Choose rejection type..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="not_qualified">Not Qualified</SelectItem>
+                                  <SelectItem value="non_teaching">Non-Teaching Position</SelectItem>
+                                  <SelectItem value="teaching">Teaching Position</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
                           <div className="space-y-2">
                             <Label>Remarks</Label>
                             <Textarea
@@ -332,7 +350,8 @@ export default function ApplicationTracking() {
                                 interviewScheduleDate: statusForm.interviewScheduleDate || undefined,
                                 finalEvaluationDate: statusForm.finalEvaluationDate || undefined,
                                 allowWorkflowSkip: statusForm.allowWorkflowSkip,
-                                notifyApplicant: statusForm.notifyApplicant
+                                notifyApplicant: statusForm.notifyApplicant,
+                                rejectionSubtype: statusForm.rejectionSubtype
                               });
                             }}
                             disabled={updateMutation.isPending}

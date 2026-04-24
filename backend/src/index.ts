@@ -239,7 +239,74 @@ function canTransitionStatus(currentStatus: string, nextStatus: string) {
   return nextIndex === currentIndex + 1;
 }
 
-function getStatusEmailDescription(status: string, workflow: { examScheduleDate?: string; interviewScheduleDate?: string; finalEvaluationDate?: string }) {
+type RejectionSubtype = "not_qualified" | "non_teaching" | "teaching";
+
+const rejectionTemplates: Record<RejectionSubtype, { subject: string; bodyTemplate: (name: string, jobTitle: string) => string }> = {
+  not_qualified: {
+    subject: "Application Status Update: Not Qualified",
+    bodyTemplate: (name: string, jobTitle: string) => `
+Date:
+________________________
+________________________
+________________________
+
+Dear Mr./Ms. ${name}:
+Thank you for your interest in the ${jobTitle} and for the time and effort you invested in your application.
+After careful review and evaluation of all applications, we regret to inform you that you were not selected for the position. While your qualifications and experiences are valued, the selection process was highly competitive, and only applicants who fully met the qualifications and requirements were considered for appointment.
+We sincerely thank you for the interest you have shown in our organization and encourage you to continue seeking opportunities with us in the future.
+Once again, thank you for considering Western Mindanao State University.
+Respectfully,
+________________________________
+Human Resource Management Officer III
+    `.trim()
+  },
+  non_teaching: {
+    subject: "Application Status Update: Not Selected",
+    bodyTemplate: (name: string, jobTitle: string) => `
+Date:
+_________________
+
+___________________________________
+___________________________________
+___________________________________
+
+Dear ${name},
+
+This refers to your application for the position of ${jobTitle} at Western Mindanao State University.
+We appreciate the interest you have shown and the time you have spent on the interview with us. However, please be informed that a candidate for the said position has already been selected.
+We genuinely appreciate and thank you for your interest in joining the WMSU Community.
+
+Very truly yours,
+
+______________________________________________
+Human Resource Management Officer III
+    `.trim()
+  },
+  teaching: {
+    subject: "Application Status Update: Not Selected",
+    bodyTemplate: (name: string, jobTitle: string) => `
+Date:
+_________________
+
+___________________________________
+___________________________________
+___________________________________
+
+Dear ${name},
+
+This refers to your application for the position of ${jobTitle} at Western Mindanao State University.
+We appreciate the interest you have shown and the time you have spent on the Teaching Demonstration and/or Interview with us. However, please be informed that a candidate for the said position has already been selected.
+We genuinely appreciate and thank you for your interest in joining the WMSU Community.
+
+Very truly yours,
+
+______________________________________________
+Human Resource Management Officer III
+    `.trim()
+  }
+};
+
+function getStatusEmailDescription(status: string, workflow: { examScheduleDate?: string; interviewScheduleDate?: string; finalEvaluationDate?: string }, rejectionSubtype?: RejectionSubtype) {
   switch (status) {
     case "Application Received":
       return "Your application has been received and recorded in our system.";
@@ -274,13 +341,33 @@ async function sendApplicationStatusEmail(payload: {
   jobTitle: string;
   status: string;
   remarks?: string;
+  rejectionSubtype?: RejectionSubtype;
   workflow: { examScheduleDate?: string; interviewScheduleDate?: string; finalEvaluationDate?: string };
 }) {
-  const description = getStatusEmailDescription(payload.status, payload.workflow);
+  let subject = `Application Status Update: ${payload.status}`;
+  let body = getStatusEmailDescription(payload.status, payload.workflow, payload.rejectionSubtype);
+
+  // Use rejection template if status is Rejected
+  if (payload.status === "Rejected" && payload.rejectionSubtype && rejectionTemplates[payload.rejectionSubtype]) {
+    const template = rejectionTemplates[payload.rejectionSubtype];
+    subject = template.subject;
+    body = template.bodyTemplate(payload.applicantName, payload.jobTitle);
+  }
+
+  const html = `
+    <p>${body.split('\n').join('</p><p>')}</p>
+    ${payload.remarks ? `<p><strong>Additional Remarks:</strong> ${payload.remarks}</p>` : ""}
+  `;
 
   if (!EMAIL_ENABLED) {
-    console.log(`[Email disabled] To: ${payload.applicantEmail} | Status: ${payload.status} | ${description}`);
-    return false;
+    console.log(`[Email disabled] To: ${payload.applicantEmail} | Status: ${payload.status} | ${body}`);
+    return {
+      sent: false,
+      status: "disabled" as const,
+      providerResponse: "SMTP is not configured.",
+      subject,
+      html
+    };
   }
 
   const transporter = nodemailer.createTransport({
@@ -293,23 +380,29 @@ async function sendApplicationStatusEmail(payload: {
     }
   });
 
-  const html = `
-    <p>Dear ${payload.applicantName},</p>
-    <p>Your application for <strong>${payload.jobTitle}</strong> has been updated to:</p>
-    <p><strong>${payload.status}</strong></p>
-    <p>${description}</p>
-    ${payload.remarks ? `<p><strong>Remarks:</strong> ${payload.remarks}</p>` : ""}
-    <p>Thank you,<br/>WMSU HRMO</p>
-  `;
-
-  await transporter.sendMail({
+  const info = await transporter.sendMail({
     from: process.env.SMTP_FROM ?? process.env.SMTP_USER,
     to: payload.applicantEmail,
-    subject: `Application Status Update: ${payload.status}`,
+    subject,
     html
   });
 
-  return true;
+  return {
+    sent: true,
+    status: "accepted" as const,
+    providerResponse: info.response ?? "Accepted by SMTP transport",
+    messageId: info.messageId,
+    subject,
+    html
+  };
+}
+
+function createEmailBodyPreview(html: string) {
+  return html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 280);
 }
 
 function mapHistory(row: any) {
@@ -1223,7 +1316,8 @@ app.patch("/api/applications/:id/status", requireAuth, asyncHandler(async (req: 
     interviewScheduleDate,
     finalEvaluationDate,
     allowWorkflowSkip,
-    notifyApplicant
+    notifyApplicant,
+    rejectionSubtype
   } = req.body as {
     status?: string;
     remarks?: string;
@@ -1233,6 +1327,7 @@ app.patch("/api/applications/:id/status", requireAuth, asyncHandler(async (req: 
     finalEvaluationDate?: string;
     allowWorkflowSkip?: boolean;
     notifyApplicant?: boolean;
+    rejectionSubtype?: RejectionSubtype;
   };
 
   if (!status) {
@@ -1329,22 +1424,61 @@ app.patch("/api/applications/:id/status", requireAuth, asyncHandler(async (req: 
   const shouldNotifyApplicant = notifyApplicant !== false;
 
   let notificationSent = false;
+  let emailDeliveryStatus: "skipped" | "disabled" | "accepted" | "failed" = "skipped";
+  let emailProviderResponse: string | undefined;
+
+  if (!shouldNotifyApplicant) {
+    logAudit(req, "status_email_skipped", req.user?.id, {
+      applicationId: req.params.id,
+      to: emailContext?.email,
+      status,
+      reason: "Notification disabled by user toggle"
+    });
+  }
+
   if (shouldNotifyApplicant && emailContext) {
     try {
-      notificationSent = await sendApplicationStatusEmail({
+      const emailResult = await sendApplicationStatusEmail({
         applicantEmail: emailContext.email,
         applicantName: emailContext.full_name,
         jobTitle: emailContext.position_title,
         status,
         remarks,
+        rejectionSubtype,
         workflow: {
           examScheduleDate: updatedExamDate ?? undefined,
           interviewScheduleDate: updatedInterviewDate ?? undefined,
           finalEvaluationDate: updatedFinalEvalDate ?? undefined
         }
       });
+
+      notificationSent = emailResult.sent;
+      emailDeliveryStatus = emailResult.status;
+      emailProviderResponse = emailResult.providerResponse;
+
+      logAudit(req, emailResult.sent ? "status_email_sent" : "status_email_disabled", req.user?.id, {
+        applicationId: req.params.id,
+        to: emailContext.email,
+        applicantName: emailContext.full_name,
+        jobTitle: emailContext.position_title,
+        status,
+        subject: emailResult.subject,
+        bodyPreview: createEmailBodyPreview(emailResult.html),
+        messageId: emailResult.messageId,
+        accepted: emailResult.accepted,
+        rejected: emailResult.rejected,
+        providerResponse: emailResult.providerResponse
+      });
     } catch (error) {
       console.error("Failed to send status email", error);
+      emailDeliveryStatus = "failed";
+      emailProviderResponse = error instanceof Error ? error.message : "Unknown send error";
+      logAudit(req, "status_email_failed", req.user?.id, {
+        applicationId: req.params.id,
+        to: emailContext.email,
+        status,
+        providerResponse: emailProviderResponse
+      });
     }
   }
 
@@ -1352,7 +1486,9 @@ app.patch("/api/applications/:id/status", requireAuth, asyncHandler(async (req: 
     application: mapApplication(result.rows[0]),
     history,
     notificationSent,
-    notificationSkipped: !shouldNotifyApplicant
+    notificationSkipped: !shouldNotifyApplicant,
+    emailDeliveryStatus,
+    emailProviderResponse
   });
 }));
 
