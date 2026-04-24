@@ -48,6 +48,63 @@ type AddressParts = {
   streetAddress: string;
 };
 
+type ChildEntry = {
+  fullName: string;
+  dateOfBirth: string;
+};
+
+type EducationEntry = {
+  level: string;
+  schoolName: string;
+  degreeCourse: string;
+  attendanceFrom: string;
+  attendanceTo: string;
+  highestLevelUnitsEarned: string;
+  yearGraduated: string;
+  scholarshipHonors: string;
+};
+
+type CivilServiceEntry = {
+  eligibility: string;
+  rating: string;
+  examDate: string;
+  examPlace: string;
+  licenseNumber: string;
+  licenseValidUntil: string;
+};
+
+type WorkExperienceEntry = {
+  dateFrom: string;
+  dateTo: string;
+  positionTitle: string;
+  departmentAgencyOfficeCompany: string;
+  statusOfAppointment: string;
+  isGovtService: "Y" | "N" | "";
+};
+
+type VoluntaryWorkEntry = {
+  organizationNameAddress: string;
+  dateFrom: string;
+  dateTo: string;
+  numberOfHours: string;
+  positionNatureOfWork: string;
+};
+
+type TrainingEntry = {
+  title: string;
+  dateFrom: string;
+  dateTo: string;
+  numberOfHours: string;
+  typeOfLd: string;
+  conductedSponsoredBy: string;
+};
+
+type OtherInfoEntry = {
+  specialSkillsHobbies: string;
+  nonAcademicDistinctionsRecognition: string;
+  membershipsAssociationOrganization: string;
+};
+
 type RegionUnit = {
   code: string;
   name: string;
@@ -123,6 +180,467 @@ function splitFullName(fullName: string): NameParts {
   };
 }
 
+function serializeChildrenInfo(entries: ChildEntry[]) {
+  return entries
+    .filter((entry) => entry.fullName.trim() || entry.dateOfBirth)
+    .map((entry) => `${entry.fullName.trim()}|${entry.dateOfBirth}`)
+    .join("\n");
+}
+
+function parseChildrenInfo(value: string): ChildEntry[] {
+  if (!value.trim()) {
+    return [{ fullName: "", dateOfBirth: "" }];
+  }
+
+  const parsed = value
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [fullNamePart, dateOfBirthPart = ""] = line.split("|");
+      return {
+        fullName: fullNamePart.trim(),
+        dateOfBirth: dateOfBirthPart.trim()
+      };
+    });
+
+  return parsed.length > 0 ? parsed : [{ fullName: "", dateOfBirth: "" }];
+}
+
+const defaultEducationLevels = [
+  "Elementary",
+  "Secondary",
+  "Vocational / Trade Course",
+  "College",
+  "Graduate Studies"
+];
+
+function createEducationEntry(level = ""): EducationEntry {
+  return {
+    level,
+    schoolName: "",
+    degreeCourse: "",
+    attendanceFrom: "",
+    attendanceTo: "",
+    highestLevelUnitsEarned: "",
+    yearGraduated: "",
+    scholarshipHonors: ""
+  };
+}
+
+function buildDefaultEducationEntries(): EducationEntry[] {
+  return defaultEducationLevels.map((level) => createEducationEntry(level));
+}
+
+function serializeEducationalBackground(entries: EducationEntry[]) {
+  return entries
+    .filter((entry) =>
+      entry.level.trim() ||
+      entry.schoolName.trim() ||
+      entry.degreeCourse.trim() ||
+      entry.attendanceFrom ||
+      entry.attendanceTo ||
+      entry.highestLevelUnitsEarned.trim() ||
+      entry.yearGraduated.trim() ||
+      entry.scholarshipHonors.trim()
+    )
+    .map((entry) => [
+      entry.level.trim(),
+      entry.schoolName.trim(),
+      entry.degreeCourse.trim(),
+      entry.attendanceFrom,
+      entry.attendanceTo,
+      entry.highestLevelUnitsEarned.trim(),
+      entry.yearGraduated.trim(),
+      entry.scholarshipHonors.trim()
+    ].join("|"))
+    .join("\n");
+}
+
+function parseEducationalBackground(value: string): EducationEntry[] {
+  if (!value.trim()) {
+    return buildDefaultEducationEntries();
+  }
+
+  const parsed = value
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const segments = line.split("|");
+      if (segments.length < 2) {
+        return {
+          ...createEducationEntry(),
+          schoolName: line
+        };
+      }
+
+      const [
+        level = "",
+        schoolName = "",
+        degreeCourse = "",
+        attendanceFrom = "",
+        attendanceTo = "",
+        highestLevelUnitsEarned = "",
+        yearGraduated = "",
+        scholarshipHonors = ""
+      ] = segments;
+
+      return {
+        level,
+        schoolName,
+        degreeCourse,
+        attendanceFrom,
+        attendanceTo,
+        highestLevelUnitsEarned,
+        yearGraduated,
+        scholarshipHonors
+      };
+    });
+
+  return parsed.length > 0 ? parsed : buildDefaultEducationEntries();
+}
+
+function createCivilServiceEntry(): CivilServiceEntry {
+  return {
+    eligibility: "",
+    rating: "",
+    examDate: "",
+    examPlace: "",
+    licenseNumber: "",
+    licenseValidUntil: ""
+  };
+}
+
+function serializeCivilServiceEligibility(entries: CivilServiceEntry[]) {
+  return entries
+    .filter((entry) =>
+      entry.eligibility.trim() ||
+      entry.rating.trim() ||
+      entry.examDate ||
+      entry.examPlace.trim() ||
+      entry.licenseNumber.trim() ||
+      entry.licenseValidUntil
+    )
+    .map((entry) => [
+      entry.eligibility.trim(),
+      entry.rating.trim(),
+      entry.examDate,
+      entry.examPlace.trim(),
+      entry.licenseNumber.trim(),
+      entry.licenseValidUntil
+    ].join("|"))
+    .join("\n");
+}
+
+function parseCivilServiceEligibility(value: string): CivilServiceEntry[] {
+  if (!value.trim()) {
+    return [createCivilServiceEntry()];
+  }
+
+  const parsed = value
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const parts = line.split("|");
+      if (parts.length < 2) {
+        return {
+          ...createCivilServiceEntry(),
+          eligibility: line
+        };
+      }
+
+      const [
+        eligibility = "",
+        rating = "",
+        examDate = "",
+        examPlace = "",
+        licenseNumber = "",
+        licenseValidUntil = ""
+      ] = parts;
+
+      return {
+        eligibility,
+        rating,
+        examDate,
+        examPlace,
+        licenseNumber,
+        licenseValidUntil
+      };
+    });
+
+  return parsed.length > 0 ? parsed : [createCivilServiceEntry()];
+}
+
+function createWorkExperienceEntry(): WorkExperienceEntry {
+  return {
+    dateFrom: "",
+    dateTo: "",
+    positionTitle: "",
+    departmentAgencyOfficeCompany: "",
+    statusOfAppointment: "",
+    isGovtService: ""
+  };
+}
+
+function serializeWorkExperience(entries: WorkExperienceEntry[]) {
+  return entries
+    .filter((entry) =>
+      entry.dateFrom ||
+      entry.dateTo ||
+      entry.positionTitle.trim() ||
+      entry.departmentAgencyOfficeCompany.trim() ||
+      entry.statusOfAppointment.trim() ||
+      entry.isGovtService
+    )
+    .map((entry) => [
+      entry.dateFrom,
+      entry.dateTo,
+      entry.positionTitle.trim(),
+      entry.departmentAgencyOfficeCompany.trim(),
+      entry.statusOfAppointment.trim(),
+      entry.isGovtService
+    ].join("|"))
+    .join("\n");
+}
+
+function parseWorkExperience(value: string): WorkExperienceEntry[] {
+  if (!value.trim()) {
+    return [createWorkExperienceEntry()];
+  }
+
+  const parsed = value
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const parts = line.split("|");
+      if (parts.length < 2) {
+        return {
+          ...createWorkExperienceEntry(),
+          positionTitle: line
+        };
+      }
+
+      const [
+        dateFrom = "",
+        dateTo = "",
+        positionTitle = "",
+        departmentAgencyOfficeCompany = "",
+        statusOfAppointment = "",
+        isGovtService = ""
+      ] = parts;
+
+      return {
+        dateFrom,
+        dateTo,
+        positionTitle,
+        departmentAgencyOfficeCompany,
+        statusOfAppointment,
+        isGovtService: isGovtService === "Y" || isGovtService === "N" ? isGovtService : ""
+      };
+    });
+
+  return parsed.length > 0 ? parsed : [createWorkExperienceEntry()];
+}
+
+function createVoluntaryWorkEntry(): VoluntaryWorkEntry {
+  return {
+    organizationNameAddress: "",
+    dateFrom: "",
+    dateTo: "",
+    numberOfHours: "",
+    positionNatureOfWork: ""
+  };
+}
+
+function serializeVoluntaryWork(entries: VoluntaryWorkEntry[]) {
+  return entries
+    .filter((entry) =>
+      entry.organizationNameAddress.trim() ||
+      entry.dateFrom ||
+      entry.dateTo ||
+      entry.numberOfHours.trim() ||
+      entry.positionNatureOfWork.trim()
+    )
+    .map((entry) => [
+      entry.organizationNameAddress.trim(),
+      entry.dateFrom,
+      entry.dateTo,
+      entry.numberOfHours.trim(),
+      entry.positionNatureOfWork.trim()
+    ].join("|"))
+    .join("\n");
+}
+
+function parseVoluntaryWork(value: string): VoluntaryWorkEntry[] {
+  if (!value.trim()) {
+    return [createVoluntaryWorkEntry()];
+  }
+
+  const parsed = value
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const parts = line.split("|");
+      if (parts.length < 2) {
+        return {
+          ...createVoluntaryWorkEntry(),
+          organizationNameAddress: line
+        };
+      }
+
+      const [
+        organizationNameAddress = "",
+        dateFrom = "",
+        dateTo = "",
+        numberOfHours = "",
+        positionNatureOfWork = ""
+      ] = parts;
+
+      return {
+        organizationNameAddress,
+        dateFrom,
+        dateTo,
+        numberOfHours,
+        positionNatureOfWork
+      };
+    });
+
+  return parsed.length > 0 ? parsed : [createVoluntaryWorkEntry()];
+}
+
+function createTrainingEntry(): TrainingEntry {
+  return {
+    title: "",
+    dateFrom: "",
+    dateTo: "",
+    numberOfHours: "",
+    typeOfLd: "",
+    conductedSponsoredBy: ""
+  };
+}
+
+function serializeTrainings(entries: TrainingEntry[]) {
+  return entries
+    .filter((entry) =>
+      entry.title.trim() ||
+      entry.dateFrom ||
+      entry.dateTo ||
+      entry.numberOfHours.trim() ||
+      entry.typeOfLd.trim() ||
+      entry.conductedSponsoredBy.trim()
+    )
+    .map((entry) => [
+      entry.title.trim(),
+      entry.dateFrom,
+      entry.dateTo,
+      entry.numberOfHours.trim(),
+      entry.typeOfLd.trim(),
+      entry.conductedSponsoredBy.trim()
+    ].join("|"))
+    .join("\n");
+}
+
+function parseTrainings(value: string): TrainingEntry[] {
+  if (!value.trim()) {
+    return [createTrainingEntry()];
+  }
+
+  const parsed = value
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const parts = line.split("|");
+      if (parts.length < 2) {
+        return {
+          ...createTrainingEntry(),
+          title: line
+        };
+      }
+
+      const [
+        title = "",
+        dateFrom = "",
+        dateTo = "",
+        numberOfHours = "",
+        typeOfLd = "",
+        conductedSponsoredBy = ""
+      ] = parts;
+
+      return {
+        title,
+        dateFrom,
+        dateTo,
+        numberOfHours,
+        typeOfLd,
+        conductedSponsoredBy
+      };
+    });
+
+  return parsed.length > 0 ? parsed : [createTrainingEntry()];
+}
+
+function createOtherInfoEntry(): OtherInfoEntry {
+  return {
+    specialSkillsHobbies: "",
+    nonAcademicDistinctionsRecognition: "",
+    membershipsAssociationOrganization: ""
+  };
+}
+
+function serializeOtherInfo(entries: OtherInfoEntry[]) {
+  return entries
+    .filter((entry) =>
+      entry.specialSkillsHobbies.trim() ||
+      entry.nonAcademicDistinctionsRecognition.trim() ||
+      entry.membershipsAssociationOrganization.trim()
+    )
+    .map((entry) => [
+      entry.specialSkillsHobbies.trim(),
+      entry.nonAcademicDistinctionsRecognition.trim(),
+      entry.membershipsAssociationOrganization.trim()
+    ].join("|"))
+    .join("\n");
+}
+
+function parseOtherInfo(value: string): OtherInfoEntry[] {
+  if (!value.trim()) {
+    return [createOtherInfoEntry()];
+  }
+
+  const parsed = value
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const parts = line.split("|");
+      if (parts.length < 2) {
+        return {
+          ...createOtherInfoEntry(),
+          specialSkillsHobbies: line
+        };
+      }
+
+      const [
+        specialSkillsHobbies = "",
+        nonAcademicDistinctionsRecognition = "",
+        membershipsAssociationOrganization = ""
+      ] = parts;
+
+      return {
+        specialSkillsHobbies,
+        nonAcademicDistinctionsRecognition,
+        membershipsAssociationOrganization
+      };
+    });
+
+  return parsed.length > 0 ? parsed : [createOtherInfoEntry()];
+}
+
 function SearchableSelect({
   value,
   onValueChange,
@@ -195,8 +713,50 @@ export default function Applicants() {
   const [formState, setFormState] = useState({
     fullName: "",
     contactNumber: "",
+    telephoneNumber: "",
     email: "",
     address: "",
+    permanentAddress: "",
+    dateOfBirth: "",
+    placeOfBirth: "",
+    sex: "",
+    civilStatus: "",
+    citizenship: "",
+    height: "",
+    weight: "",
+    bloodType: "",
+    gsisIdNo: "",
+    philsysNo: "",
+    pagibigIdNo: "",
+    philhealthNo: "",
+    citizenshipDetails: "",
+    sssNo: "",
+    tinNo: "",
+    agencyEmployeeNo: "",
+    spouseName: "",
+    spouseSurname: "",
+    spouseFirstName: "",
+    spouseMiddleName: "",
+    spouseNameExtension: "",
+    spouseOccupation: "",
+    spouseEmployerBusinessName: "",
+    spouseBusinessAddress: "",
+    spouseTelephoneNo: "",
+    childrenInfo: "",
+    fatherName: "",
+    fatherSurname: "",
+    fatherFirstName: "",
+    fatherMiddleName: "",
+    fatherNameExtension: "",
+    motherName: "",
+    motherSurname: "",
+    motherFirstName: "",
+    motherMiddleName: "",
+    civilServiceEligibility: "",
+    voluntaryWork: "",
+    trainings: "",
+    otherInfo: "",
+    referencesInfo: "",
     educationalBackground: "",
     workExperience: ""
   });
@@ -221,8 +781,50 @@ export default function Applicants() {
   const [editFormState, setEditFormState] = useState({
     fullName: "",
     contactNumber: "",
+    telephoneNumber: "",
     email: "",
     address: "",
+    permanentAddress: "",
+    dateOfBirth: "",
+    placeOfBirth: "",
+    sex: "",
+    civilStatus: "",
+    citizenship: "",
+    height: "",
+    weight: "",
+    bloodType: "",
+    gsisIdNo: "",
+    philsysNo: "",
+    pagibigIdNo: "",
+    philhealthNo: "",
+    citizenshipDetails: "",
+    sssNo: "",
+    tinNo: "",
+    agencyEmployeeNo: "",
+    spouseName: "",
+    spouseSurname: "",
+    spouseFirstName: "",
+    spouseMiddleName: "",
+    spouseNameExtension: "",
+    spouseOccupation: "",
+    spouseEmployerBusinessName: "",
+    spouseBusinessAddress: "",
+    spouseTelephoneNo: "",
+    childrenInfo: "",
+    fatherName: "",
+    fatherSurname: "",
+    fatherFirstName: "",
+    fatherMiddleName: "",
+    fatherNameExtension: "",
+    motherName: "",
+    motherSurname: "",
+    motherFirstName: "",
+    motherMiddleName: "",
+    civilServiceEligibility: "",
+    voluntaryWork: "",
+    trainings: "",
+    otherInfo: "",
+    referencesInfo: "",
     educationalBackground: "",
     workExperience: ""
   });
@@ -234,6 +836,35 @@ export default function Applicants() {
     dateApplied: new Date().toISOString().split("T")[0]
   });
   const [isScanningResume, setIsScanningResume] = useState(false);
+  const createSectionIds = [
+    "create-section-1",
+    "create-section-2",
+    "create-section-3",
+    "create-section-4",
+    "create-section-5",
+    "create-section-6",
+    "create-section-7",
+    "create-section-8"
+  ] as const;
+  const createSectionTitles = [
+    "I. Personal Information",
+    "II. Family Background",
+    "III. Educational Background",
+    "IV. Civil Service Eligibility",
+    "V. Work Experience",
+    "VI. Voluntary Work or Involvement in Civic/Non-Government/People/Voluntary Organizations",
+    "VII. Learning and Development (L&D) Interventions/Training Programs Attended",
+    "VIII. Other Information"
+  ] as const;
+  const [createSectionIndex, setCreateSectionIndex] = useState(0);
+  const [dualCitizenshipType, setDualCitizenshipType] = useState<"" | "By Birth" | "By Naturalization">("");
+  const [childrenEntries, setChildrenEntries] = useState<ChildEntry[]>([{ fullName: "", dateOfBirth: "" }]);
+  const [educationEntries, setEducationEntries] = useState<EducationEntry[]>(buildDefaultEducationEntries());
+  const [civilServiceEntries, setCivilServiceEntries] = useState<CivilServiceEntry[]>([createCivilServiceEntry()]);
+  const [workExperienceEntries, setWorkExperienceEntries] = useState<WorkExperienceEntry[]>([createWorkExperienceEntry()]);
+  const [voluntaryWorkEntries, setVoluntaryWorkEntries] = useState<VoluntaryWorkEntry[]>([createVoluntaryWorkEntry()]);
+  const [trainingEntries, setTrainingEntries] = useState<TrainingEntry[]>([createTrainingEntry()]);
+  const [otherInfoEntries, setOtherInfoEntries] = useState<OtherInfoEntry[]>([createOtherInfoEntry()]);
   const [editDocuments, setEditDocuments] = useState<{ resume: File | null; transcript: File | null; certificates: File[] }>(
     { resume: null, transcript: null, certificates: [] }
   );
@@ -299,6 +930,11 @@ export default function Applicants() {
     () => barangayUnits.map((barangay) => ({ value: barangay.code, label: barangay.name })),
     [barangayUnits]
   );
+
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: currentYear - 1949 }, (_, index) => String(currentYear - index));
+  }, []);
 
   useEffect(() => {
     let isCancelled = false;
@@ -440,8 +1076,50 @@ export default function Applicants() {
     setFormState({
       fullName: "",
       contactNumber: "",
+      telephoneNumber: "",
       email: "",
       address: "",
+      permanentAddress: "",
+      dateOfBirth: "",
+      placeOfBirth: "",
+      sex: "",
+      civilStatus: "",
+      citizenship: "",
+      height: "",
+      weight: "",
+      bloodType: "",
+      gsisIdNo: "",
+      philsysNo: "",
+      pagibigIdNo: "",
+      philhealthNo: "",
+      citizenshipDetails: "",
+      sssNo: "",
+      tinNo: "",
+      agencyEmployeeNo: "",
+      spouseName: "",
+      spouseSurname: "",
+      spouseFirstName: "",
+      spouseMiddleName: "",
+      spouseNameExtension: "",
+      spouseOccupation: "",
+      spouseEmployerBusinessName: "",
+      spouseBusinessAddress: "",
+      spouseTelephoneNo: "",
+      childrenInfo: "",
+      fatherName: "",
+      fatherSurname: "",
+      fatherFirstName: "",
+      fatherMiddleName: "",
+      fatherNameExtension: "",
+      motherName: "",
+      motherSurname: "",
+      motherFirstName: "",
+      motherMiddleName: "",
+      civilServiceEligibility: "",
+      voluntaryWork: "",
+      trainings: "",
+      otherInfo: "",
+      referencesInfo: "",
       educationalBackground: "",
       workExperience: ""
     });
@@ -449,6 +1127,14 @@ export default function Applicants() {
     setAddressParts({ regionCode: "", cityCode: "", barangayCode: "", streetAddress: "" });
     setCityUnits([]);
     setBarangayUnits([]);
+    setDualCitizenshipType("");
+    setChildrenEntries([{ fullName: "", dateOfBirth: "" }]);
+    setEducationEntries(buildDefaultEducationEntries());
+    setCivilServiceEntries([createCivilServiceEntry()]);
+    setWorkExperienceEntries([createWorkExperienceEntry()]);
+    setVoluntaryWorkEntries([createVoluntaryWorkEntry()]);
+    setTrainingEntries([createTrainingEntry()]);
+    setOtherInfoEntries([createOtherInfoEntry()]);
     setDocuments({ resume: null, transcript: null, certificates: [] });
   };
 
@@ -524,6 +1210,28 @@ export default function Applicants() {
   };
 
   const applyParsedDraftToForm = (draft: ParsedApplicantDraft) => {
+    const incomingCitizenship = draft.citizenship || "";
+    const incomingDetailsRaw = draft.citizenshipDetails || "";
+    let parsedDualType: "" | "By Birth" | "By Naturalization" = "";
+    let parsedDualDetails = incomingDetailsRaw;
+
+    if (/^By Birth:\s*/i.test(incomingDetailsRaw)) {
+      parsedDualType = "By Birth";
+      parsedDualDetails = incomingDetailsRaw.replace(/^By Birth:\s*/i, "");
+    } else if (/^By Naturalization:\s*/i.test(incomingDetailsRaw)) {
+      parsedDualType = "By Naturalization";
+      parsedDualDetails = incomingDetailsRaw.replace(/^By Naturalization:\s*/i, "");
+    }
+
+    setDualCitizenshipType(incomingCitizenship === "Dual Citizenship" ? parsedDualType : "");
+    setChildrenEntries(parseChildrenInfo(draft.childrenInfo || ""));
+    setEducationEntries(parseEducationalBackground(draft.educationalBackground || ""));
+    setCivilServiceEntries(parseCivilServiceEligibility(draft.civilServiceEligibility || ""));
+    setWorkExperienceEntries(parseWorkExperience(draft.workExperience || ""));
+    setVoluntaryWorkEntries(parseVoluntaryWork(draft.voluntaryWork || ""));
+    setTrainingEntries(parseTrainings(draft.trainings || ""));
+    setOtherInfoEntries(parseOtherInfo(draft.otherInfo || ""));
+
     if (draft.fullName) {
       setNameParts(splitFullName(draft.fullName));
     }
@@ -531,7 +1239,49 @@ export default function Applicants() {
     setFormState((prev) => ({
       ...prev,
       contactNumber: draft.contactNumber || prev.contactNumber,
+      telephoneNumber: draft.telephoneNumber || prev.telephoneNumber,
       email: draft.email || prev.email,
+      permanentAddress: draft.permanentAddress || prev.permanentAddress,
+      dateOfBirth: draft.dateOfBirth || prev.dateOfBirth,
+      placeOfBirth: draft.placeOfBirth || prev.placeOfBirth,
+      sex: draft.sex || prev.sex,
+      civilStatus: draft.civilStatus || prev.civilStatus,
+      citizenship: incomingCitizenship || prev.citizenship,
+      height: draft.height || prev.height,
+      weight: draft.weight || prev.weight,
+      bloodType: draft.bloodType || prev.bloodType,
+      gsisIdNo: draft.gsisIdNo || prev.gsisIdNo,
+      philsysNo: draft.philsysNo || prev.philsysNo,
+      pagibigIdNo: draft.pagibigIdNo || prev.pagibigIdNo,
+      philhealthNo: draft.philhealthNo || prev.philhealthNo,
+      citizenshipDetails: parsedDualDetails || prev.citizenshipDetails,
+      sssNo: draft.sssNo || prev.sssNo,
+      tinNo: draft.tinNo || prev.tinNo,
+      agencyEmployeeNo: draft.agencyEmployeeNo || prev.agencyEmployeeNo,
+      spouseName: draft.spouseName || prev.spouseName,
+      spouseSurname: draft.spouseSurname || prev.spouseSurname,
+      spouseFirstName: draft.spouseFirstName || prev.spouseFirstName,
+      spouseMiddleName: draft.spouseMiddleName || prev.spouseMiddleName,
+      spouseNameExtension: draft.spouseNameExtension || prev.spouseNameExtension,
+      spouseOccupation: draft.spouseOccupation || prev.spouseOccupation,
+      spouseEmployerBusinessName: draft.spouseEmployerBusinessName || prev.spouseEmployerBusinessName,
+      spouseBusinessAddress: draft.spouseBusinessAddress || prev.spouseBusinessAddress,
+      spouseTelephoneNo: draft.spouseTelephoneNo || prev.spouseTelephoneNo,
+      childrenInfo: draft.childrenInfo || prev.childrenInfo,
+      fatherName: draft.fatherName || prev.fatherName,
+      fatherSurname: draft.fatherSurname || prev.fatherSurname,
+      fatherFirstName: draft.fatherFirstName || prev.fatherFirstName,
+      fatherMiddleName: draft.fatherMiddleName || prev.fatherMiddleName,
+      fatherNameExtension: draft.fatherNameExtension || prev.fatherNameExtension,
+      motherName: draft.motherName || prev.motherName,
+      motherSurname: draft.motherSurname || prev.motherSurname,
+      motherFirstName: draft.motherFirstName || prev.motherFirstName,
+      motherMiddleName: draft.motherMiddleName || prev.motherMiddleName,
+      civilServiceEligibility: draft.civilServiceEligibility || prev.civilServiceEligibility,
+      voluntaryWork: draft.voluntaryWork || prev.voluntaryWork,
+      trainings: draft.trainings || prev.trainings,
+      otherInfo: draft.otherInfo || prev.otherInfo,
+      referencesInfo: draft.referencesInfo || prev.referencesInfo,
       educationalBackground: draft.educationalBackground || prev.educationalBackground,
       workExperience: draft.workExperience || prev.workExperience
     }));
@@ -547,8 +1297,8 @@ export default function Applicants() {
   const handleScanResumeAutofill = async () => {
     if (!documents.resume) {
       toast({
-        title: "Resume required",
-        description: "Upload a resume first, then scan for autofill.",
+        title: "PDS required",
+        description: "Upload a PDS first, then scan for autofill.",
         variant: "destructive"
       });
       return;
@@ -573,7 +1323,7 @@ export default function Applicants() {
 
       toast({
         title: "Autofill ready",
-        description: "Parsed resume data has been applied. Review and edit before saving."
+        description: "Parsed PDS data has been applied. Review and edit before saving."
       });
     } catch (error) {
       toast({
@@ -583,6 +1333,18 @@ export default function Applicants() {
       });
     } finally {
       setIsScanningResume(false);
+    }
+  };
+
+  const handleNextCreateSection = () => {
+    if (createSectionIndex < createSectionIds.length - 1) {
+      setCreateSectionIndex((prev) => prev + 1);
+    }
+  };
+
+  const handlePreviousCreateSection = () => {
+    if (createSectionIndex > 0) {
+      setCreateSectionIndex((prev) => prev - 1);
     }
   };
 
@@ -611,7 +1373,7 @@ export default function Applicants() {
       const applicant = await createApplicant(payload);
       const uploads: Array<Promise<unknown>> = [];
       if (documents.resume) {
-        uploads.push(uploadApplicantDocument(applicant.id, "resume", documents.resume));
+        uploads.push(uploadApplicantDocument(applicant.id, "pds", documents.resume));
       }
       if (documents.transcript) {
         uploads.push(uploadApplicantDocument(applicant.id, "transcript", documents.transcript));
@@ -638,7 +1400,7 @@ export default function Applicants() {
       await updateApplicant(id, payload);
       const uploads: Array<Promise<unknown>> = [];
       if (editDocuments.resume) {
-        uploads.push(uploadApplicantDocument(id, "resume", editDocuments.resume));
+        uploads.push(uploadApplicantDocument(id, "pds", editDocuments.resume));
       }
       if (editDocuments.transcript) {
         uploads.push(uploadApplicantDocument(id, "transcript", editDocuments.transcript));
@@ -694,7 +1456,16 @@ export default function Applicants() {
           <h1 className="text-2xl font-bold font-display text-foreground">Applicants</h1>
           <p className="text-sm text-muted-foreground mt-1">{filtered.length} applicant(s)</p>
         </div>
-        <Dialog open={showCreate} onOpenChange={setShowCreate}>
+        <Dialog
+          open={showCreate}
+          onOpenChange={(open) => {
+            setShowCreate(open);
+            setCreateSectionIndex(0);
+            if (!open) {
+              resetCreateForm();
+            }
+          }}
+        >
           <DialogTrigger asChild>
             <Button><Plus className="w-4 h-4 mr-2" /> Add Applicant</Button>
           </DialogTrigger>
@@ -708,6 +1479,51 @@ export default function Applicants() {
                 return;
               }
 
+              if (formState.contactNumber && !/^09\d{9}$/.test(formState.contactNumber)) {
+                toast({ title: "Invalid mobile number", description: "Use 11 digits starting with 09.", variant: "destructive" });
+                return;
+              }
+
+              if (formState.telephoneNumber && !/^\d{7,11}$/.test(formState.telephoneNumber)) {
+                toast({ title: "Invalid telephone number", description: "Use 7 to 11 digits only.", variant: "destructive" });
+                return;
+              }
+
+              if (formState.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formState.email)) {
+                toast({ title: "Invalid email", description: "Please enter a valid email address.", variant: "destructive" });
+                return;
+              }
+
+              if (!formState.dateOfBirth) {
+                toast({ title: "Missing date of birth", description: "Date of birth is required.", variant: "destructive" });
+                return;
+              }
+
+              if (!formState.sex) {
+                toast({ title: "Missing sex at birth", description: "Select sex at birth.", variant: "destructive" });
+                return;
+              }
+
+              if (!formState.civilStatus) {
+                toast({ title: "Missing civil status", description: "Select civil status.", variant: "destructive" });
+                return;
+              }
+
+              if (!formState.citizenship) {
+                toast({ title: "Missing citizenship", description: "Select citizenship.", variant: "destructive" });
+                return;
+              }
+
+              if (formState.citizenship === "Dual Citizenship" && !dualCitizenshipType) {
+                toast({ title: "Missing dual citizenship type", description: "Select By Birth or By Naturalization.", variant: "destructive" });
+                return;
+              }
+
+              if (formState.citizenship === "Dual Citizenship" && !formState.citizenshipDetails.trim()) {
+                toast({ title: "Missing dual citizenship details", description: "Provide dual citizenship details.", variant: "destructive" });
+                return;
+              }
+
               const hasStructuredAddress = Boolean(addressParts.regionCode && addressParts.cityCode && addressParts.barangayCode);
               const hasFallbackAddress = addressParts.streetAddress.trim().length > 0;
 
@@ -715,18 +1531,75 @@ export default function Applicants() {
               const address = hasStructuredAddress
                 ? formatAddress(addressParts.streetAddress, selectedBarangayName, selectedCityName, selectedRegionName)
                 : (addressParts.streetAddress.trim() || "Address not provided");
+              const dualCitizenshipDetails = dualCitizenshipType
+                ? `${dualCitizenshipType}: ${formState.citizenshipDetails.trim()}`
+                : formState.citizenshipDetails.trim();
+              const childrenInfo = serializeChildrenInfo(childrenEntries);
+              const educationalBackground = serializeEducationalBackground(educationEntries);
+              const civilServiceEligibility = serializeCivilServiceEligibility(civilServiceEntries);
+              const workExperience = serializeWorkExperience(workExperienceEntries);
+              const voluntaryWork = serializeVoluntaryWork(voluntaryWorkEntries);
+              const trainings = serializeTrainings(trainingEntries);
+              const otherInfo = serializeOtherInfo(otherInfoEntries);
 
               createMutation.mutate({
                 fullName,
                 contactNumber: formState.contactNumber,
+                telephoneNumber: formState.telephoneNumber,
                 email: formState.email,
                 address,
-                educationalBackground: formState.educationalBackground,
-                workExperience: formState.workExperience
+                permanentAddress: formState.permanentAddress,
+                dateOfBirth: formState.dateOfBirth,
+                placeOfBirth: formState.placeOfBirth,
+                sex: formState.sex,
+                civilStatus: formState.civilStatus,
+                citizenship: formState.citizenship,
+                height: formState.height,
+                weight: formState.weight,
+                bloodType: formState.bloodType,
+                gsisIdNo: formState.gsisIdNo,
+                philsysNo: formState.philsysNo,
+                pagibigIdNo: formState.pagibigIdNo,
+                philhealthNo: formState.philhealthNo,
+                citizenshipDetails: formState.citizenship === "Dual Citizenship" ? dualCitizenshipDetails : "",
+                sssNo: formState.sssNo,
+                tinNo: formState.tinNo,
+                agencyEmployeeNo: formState.agencyEmployeeNo,
+                spouseName: [formState.spouseFirstName, formState.spouseMiddleName, formState.spouseSurname].filter(Boolean).join(" "),
+                spouseSurname: formState.spouseSurname,
+                spouseFirstName: formState.spouseFirstName,
+                spouseMiddleName: formState.spouseMiddleName,
+                spouseNameExtension: formState.spouseNameExtension,
+                spouseOccupation: formState.spouseOccupation,
+                spouseEmployerBusinessName: formState.spouseEmployerBusinessName,
+                spouseBusinessAddress: formState.spouseBusinessAddress,
+                spouseTelephoneNo: formState.spouseTelephoneNo,
+                childrenInfo,
+                fatherName: [formState.fatherFirstName, formState.fatherMiddleName, formState.fatherSurname].filter(Boolean).join(" "),
+                fatherSurname: formState.fatherSurname,
+                fatherFirstName: formState.fatherFirstName,
+                fatherMiddleName: formState.fatherMiddleName,
+                fatherNameExtension: formState.fatherNameExtension,
+                motherName: [formState.motherFirstName, formState.motherMiddleName, formState.motherSurname].filter(Boolean).join(" "),
+                motherSurname: formState.motherSurname,
+                motherFirstName: formState.motherFirstName,
+                motherMiddleName: formState.motherMiddleName,
+                civilServiceEligibility,
+                voluntaryWork,
+                trainings,
+                otherInfo,
+                referencesInfo: formState.referencesInfo,
+                educationalBackground,
+                workExperience
               });
             }}>
-              <div className="space-y-2">
-                <Label>Name Details</Label>
+              <div className="flex items-center justify-between rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs">
+                <span className="text-muted-foreground">Section {createSectionIndex + 1} of {createSectionIds.length}: {createSectionTitles[createSectionIndex]}</span>
+              </div>
+              <div id="create-section-1" className={createSectionIndex === 0 ? "space-y-2" : "hidden"}>
+                <div className="space-y-2">
+                  <Label>Full Name</Label>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                   <Input
                     placeholder="First Name"
@@ -740,29 +1613,30 @@ export default function Applicants() {
                     onChange={(e) => setNameParts((prev) => ({ ...prev, middleName: e.target.value }))}
                   />
                   <Input
-                    placeholder="Last Name"
+                    placeholder="Surname"
                     value={nameParts.lastName}
                     onChange={(e) => setNameParts((prev) => ({ ...prev, lastName: e.target.value }))}
                     required
                   />
                   <Input
-                    placeholder="Ext. (Jr., Sr., III)"
+                    placeholder="Name Extension (JR/SR)"
                     value={nameParts.extensionName}
                     onChange={(e) => setNameParts((prev) => ({ ...prev, extensionName: e.target.value }))}
                   />
                 </div>
-              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Contact Number</Label>
+                  <Label>Mobile No.</Label>
                   <Input
                     placeholder="09XXXXXXXXX"
+                    inputMode="numeric"
+                    maxLength={11}
                     value={formState.contactNumber}
-                    onChange={(e) => setFormState((prev) => ({ ...prev, contactNumber: e.target.value }))}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, contactNumber: e.target.value.replace(/[^0-9]/g, "") }))}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Email</Label>
+                  <Label>E-mail Address (if any)</Label>
                   <Input
                     type="email"
                     placeholder="email@example.com"
@@ -771,8 +1645,211 @@ export default function Applicants() {
                   />
                 </div>
               </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Telephone No.</Label>
+                  <Input
+                    placeholder="(Optional landline)"
+                    inputMode="numeric"
+                    maxLength={11}
+                    value={formState.telephoneNumber}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, telephoneNumber: e.target.value.replace(/[^0-9]/g, "") }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Place of Birth</Label>
+                  <Input
+                    placeholder="City / Municipality"
+                    value={formState.placeOfBirth}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, placeOfBirth: e.target.value }))}
+                  />
+                </div>
+              </div>
               <div className="space-y-2">
-                <Label>Address</Label>
+                <Label>Permanent Address</Label>
+                <Input
+                  placeholder="Permanent Address"
+                  value={formState.permanentAddress}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, permanentAddress: e.target.value }))}
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Date of Birth</Label>
+                  <Input
+                    type="date"
+                    value={formState.dateOfBirth}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, dateOfBirth: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Sex at Birth</Label>
+                  <Select value={formState.sex || undefined} onValueChange={(value) => setFormState((prev) => ({ ...prev, sex: value }))}>
+                    <SelectTrigger><SelectValue placeholder="Select sex" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Male">Male</SelectItem>
+                      <SelectItem value="Female">Female</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Civil Status</Label>
+                  <Select value={formState.civilStatus || undefined} onValueChange={(value) => setFormState((prev) => ({ ...prev, civilStatus: value }))}>
+                    <SelectTrigger><SelectValue placeholder="Select civil status" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Single">Single</SelectItem>
+                      <SelectItem value="Married">Married</SelectItem>
+                      <SelectItem value="Widowed">Widowed</SelectItem>
+                      <SelectItem value="Separated">Separated</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Citizenship</Label>
+                  <div className="space-y-3 rounded-md border border-border/60 px-3 py-3">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name="citizenship"
+                        checked={formState.citizenship === "Filipino"}
+                        onChange={() => {
+                          setDualCitizenshipType("");
+                          setFormState((prev) => ({ ...prev, citizenship: "Filipino", citizenshipDetails: "" }));
+                        }}
+                      />
+                      Filipino
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name="citizenship"
+                        checked={formState.citizenship === "Dual Citizenship"}
+                        onChange={() => setFormState((prev) => ({ ...prev, citizenship: "Dual Citizenship" }))}
+                      />
+                      Dual Citizenship
+                    </label>
+
+                    {formState.citizenship === "Dual Citizenship" ? (
+                      <div className="space-y-2 rounded-md border border-border/60 px-3 py-2">
+                        <Label>Dual Citizenship Type</Label>
+                        <div className="flex flex-wrap items-center gap-4">
+                          <label className="flex items-center gap-2 text-sm">
+                            <input
+                              type="radio"
+                              name="dual-citizenship-type"
+                              checked={dualCitizenshipType === "By Birth"}
+                              onChange={() => setDualCitizenshipType("By Birth")}
+                            />
+                            By Birth
+                          </label>
+                          <label className="flex items-center gap-2 text-sm">
+                            <input
+                              type="radio"
+                              name="dual-citizenship-type"
+                              checked={dualCitizenshipType === "By Naturalization"}
+                              onChange={() => setDualCitizenshipType("By Naturalization")}
+                            />
+                            By Naturalization
+                          </label>
+                        </div>
+                        {dualCitizenshipType ? (
+                          <Input
+                            placeholder="Enter country or legal basis"
+                            value={formState.citizenshipDetails}
+                            onChange={(e) => setFormState((prev) => ({ ...prev, citizenshipDetails: e.target.value }))}
+                          />
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Height (m)</Label>
+                  <Input
+                    placeholder="e.g. 1.57 m"
+                    value={formState.height}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, height: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Weight (kg)</Label>
+                  <Input
+                    placeholder="e.g. 48 kg"
+                    value={formState.weight}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, weight: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Blood Type</Label>
+                  <Input
+                    placeholder="A+, B+, O-, etc."
+                    value={formState.bloodType}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, bloodType: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>UMID ID No.</Label>
+                  <Input
+                    placeholder="UMID number"
+                    value={formState.gsisIdNo}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, gsisIdNo: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>PAG-IBIG ID No.</Label>
+                  <Input
+                    placeholder="PAG-IBIG number"
+                    value={formState.pagibigIdNo}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, pagibigIdNo: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>PhilHealth No.</Label>
+                  <Input
+                    placeholder="PhilHealth number"
+                    value={formState.philhealthNo}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, philhealthNo: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>PhilSys Number (PSN)</Label>
+                  <Input
+                    placeholder="PhilSys number"
+                    value={formState.philsysNo}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, philsysNo: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>TIN No.</Label>
+                  <Input
+                    placeholder="TIN number"
+                    value={formState.tinNo}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, tinNo: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Agency Employee No.</Label>
+                  <Input
+                    placeholder="Agency employee number"
+                    value={formState.agencyEmployeeNo}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, agencyEmployeeNo: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2 rounded-md border border-border/60 p-3">
+                <Label>Residential Address</Label>
                 <div className="space-y-3">
                   <SearchableSelect
                     value={addressParts.regionCode}
@@ -828,32 +1905,852 @@ export default function Applicants() {
                   ) : null}
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Educational Background</Label>
-                <Textarea
-                  placeholder="Degree - School"
-                  value={formState.educationalBackground}
-                  onChange={(e) => setFormState((prev) => ({ ...prev, educationalBackground: e.target.value }))}
-                />
               </div>
+              <div id="create-section-2" className={createSectionIndex === 1 ? "space-y-2" : "hidden"}>
+                <Label>II. Family Background</Label>
+                <div className="space-y-2 rounded-md border border-border/60 p-3">
+                  <Label>Spouse Name</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <Input placeholder="Surname" value={formState.spouseSurname} onChange={(e) => setFormState((prev) => ({ ...prev, spouseSurname: e.target.value }))} />
+                    <Input placeholder="First Name" value={formState.spouseFirstName} onChange={(e) => setFormState((prev) => ({ ...prev, spouseFirstName: e.target.value }))} />
+                    <Input placeholder="Middle Name" value={formState.spouseMiddleName} onChange={(e) => setFormState((prev) => ({ ...prev, spouseMiddleName: e.target.value }))} />
+                    <Input placeholder="Name Extension (JR, SR)" value={formState.spouseNameExtension} onChange={(e) => setFormState((prev) => ({ ...prev, spouseNameExtension: e.target.value }))} />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Input placeholder="Occupation" value={formState.spouseOccupation} onChange={(e) => setFormState((prev) => ({ ...prev, spouseOccupation: e.target.value }))} />
+                    <Input placeholder="Employer / Business Name" value={formState.spouseEmployerBusinessName} onChange={(e) => setFormState((prev) => ({ ...prev, spouseEmployerBusinessName: e.target.value }))} />
+                    <Input placeholder="Business Address" value={formState.spouseBusinessAddress} onChange={(e) => setFormState((prev) => ({ ...prev, spouseBusinessAddress: e.target.value }))} />
+                    <Input
+                      placeholder="Telephone No."
+                      inputMode="numeric"
+                      maxLength={11}
+                      value={formState.spouseTelephoneNo}
+                      onChange={(e) => setFormState((prev) => ({ ...prev, spouseTelephoneNo: e.target.value.replace(/[^0-9]/g, "") }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2 rounded-md border border-border/60 p-3">
+                  <Label>Father's Name</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <Input placeholder="Surname" value={formState.fatherSurname} onChange={(e) => setFormState((prev) => ({ ...prev, fatherSurname: e.target.value }))} />
+                    <Input placeholder="First Name" value={formState.fatherFirstName} onChange={(e) => setFormState((prev) => ({ ...prev, fatherFirstName: e.target.value }))} />
+                    <Input placeholder="Middle Name" value={formState.fatherMiddleName} onChange={(e) => setFormState((prev) => ({ ...prev, fatherMiddleName: e.target.value }))} />
+                    <Input placeholder="Name Extension (JR, SR)" value={formState.fatherNameExtension} onChange={(e) => setFormState((prev) => ({ ...prev, fatherNameExtension: e.target.value }))} />
+                  </div>
+                </div>
+
+                <div className="space-y-2 rounded-md border border-border/60 p-3">
+                  <Label>Mother's Maiden Name</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <Input placeholder="Surname" value={formState.motherSurname} onChange={(e) => setFormState((prev) => ({ ...prev, motherSurname: e.target.value }))} />
+                    <Input placeholder="First Name" value={formState.motherFirstName} onChange={(e) => setFormState((prev) => ({ ...prev, motherFirstName: e.target.value }))} />
+                    <Input placeholder="Middle Name" value={formState.motherMiddleName} onChange={(e) => setFormState((prev) => ({ ...prev, motherMiddleName: e.target.value }))} />
+                  </div>
+                </div>
+
+                <div className="space-y-2 rounded-md border border-border/60 p-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Name of Children</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setChildrenEntries((prev) => [...prev, { fullName: "", dateOfBirth: "" }])}
+                    >
+                      Add Child
+                    </Button>
+                  </div>
+                  <div className="space-y-3">
+                    {childrenEntries.map((entry, index) => (
+                      <div key={`child-${index}`} className="grid grid-cols-1 md:grid-cols-[1fr_180px_auto] gap-2 items-center">
+                        <Input
+                          placeholder="Child Full Name"
+                          value={entry.fullName}
+                          onChange={(e) =>
+                            setChildrenEntries((prev) =>
+                              prev.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, fullName: e.target.value } : item
+                              )
+                            )
+                          }
+                        />
+                        <Input
+                          type="date"
+                          value={entry.dateOfBirth}
+                          onChange={(e) =>
+                            setChildrenEntries((prev) =>
+                              prev.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, dateOfBirth: e.target.value } : item
+                              )
+                            )
+                          }
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          disabled={childrenEntries.length === 1}
+                          onClick={() =>
+                            setChildrenEntries((prev) =>
+                              prev.length === 1 ? prev : prev.filter((_, itemIndex) => itemIndex !== index)
+                            )
+                          }
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div id="create-section-3" className={createSectionIndex === 2 ? "space-y-3" : "hidden"}>
+                <Label>III. Educational Background</Label>
+                <div className="space-y-2 rounded-md border border-border/60 p-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Educational Records</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEducationEntries((prev) => [...prev, createEducationEntry()])}
+                    >
+                      Add Education Row
+                    </Button>
+                  </div>
+                  <div className="space-y-3">
+                    {educationEntries.map((entry, index) => (
+                      <div key={`education-${index}`} className="space-y-2 rounded-md border border-border/60 p-3">
+                        <div className="space-y-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Level</Label>
+                            <Input
+                              value={entry.level}
+                              onChange={(e) =>
+                                setEducationEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, level: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Name of School</Label>
+                            <Input
+                              value={entry.schoolName}
+                              onChange={(e) =>
+                                setEducationEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, schoolName: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Basic Education / Degree / Course</Label>
+                            <Input
+                              value={entry.degreeCourse}
+                              onChange={(e) =>
+                                setEducationEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, degreeCourse: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Highest Level / Units Earned</Label>
+                            <Input
+                              value={entry.highestLevelUnitsEarned}
+                              onChange={(e) =>
+                                setEducationEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, highestLevelUnitsEarned: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Period of Attendance From</Label>
+                            <Select
+                              value={entry.attendanceFrom || undefined}
+                              onValueChange={(value) =>
+                                setEducationEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, attendanceFrom: value } : item
+                                  )
+                                )
+                              }
+                            >
+                              <SelectTrigger><SelectValue placeholder="Select year" /></SelectTrigger>
+                              <SelectContent>
+                                {yearOptions.map((year) => (
+                                  <SelectItem key={`from-${index}-${year}`} value={year}>{year}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Period of Attendance To</Label>
+                            <Select
+                              value={entry.attendanceTo || undefined}
+                              onValueChange={(value) =>
+                                setEducationEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, attendanceTo: value } : item
+                                  )
+                                )
+                              }
+                            >
+                              <SelectTrigger><SelectValue placeholder="Select year" /></SelectTrigger>
+                              <SelectContent>
+                                {yearOptions.map((year) => (
+                                  <SelectItem key={`to-${index}-${year}`} value={year}>{year}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Year Graduated</Label>
+                            <Select
+                              value={entry.yearGraduated || undefined}
+                              onValueChange={(value) =>
+                                setEducationEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, yearGraduated: value } : item
+                                  )
+                                )
+                              }
+                            >
+                              <SelectTrigger><SelectValue placeholder="Select year" /></SelectTrigger>
+                              <SelectContent>
+                                {yearOptions.map((year) => (
+                                  <SelectItem key={`grad-${index}-${year}`} value={year}>{year}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Scholarship / Academic Honors</Label>
+                            <Input
+                              value={entry.scholarshipHonors}
+                              onChange={(e) =>
+                                setEducationEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, scholarshipHonors: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-end">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            disabled={educationEntries.length === 1}
+                            onClick={() =>
+                              setEducationEntries((prev) =>
+                                prev.length === 1 ? prev : prev.filter((_, itemIndex) => itemIndex !== index)
+                              )
+                            }
+                          >
+                            Remove Row
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div id="create-section-4" className={createSectionIndex === 3 ? "space-y-2" : "hidden"}>
               <div className="space-y-2">
-                <Label>Work Experience</Label>
-                <Textarea
-                  placeholder="Years and relevant positions"
-                  value={formState.workExperience}
-                  onChange={(e) => setFormState((prev) => ({ ...prev, workExperience: e.target.value }))}
-                />
+                <Label>IV. Civil Service Eligibility</Label>
+                <div className="space-y-2 rounded-md border border-border/60 p-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Eligibility Records</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCivilServiceEntries((prev) => [...prev, createCivilServiceEntry()])}
+                    >
+                      Add Eligibility Row
+                    </Button>
+                  </div>
+                  <div className="space-y-3">
+                    {civilServiceEntries.map((entry, index) => (
+                      <div key={`civil-service-${index}`} className="space-y-2 rounded-md border border-border/60 p-3">
+                        <div className="space-y-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Career Service / RA 1080 / Eligibility</Label>
+                            <Input
+                              value={entry.eligibility}
+                              onChange={(e) =>
+                                setCivilServiceEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, eligibility: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Rating (if applicable)</Label>
+                            <Input
+                              value={entry.rating}
+                              onChange={(e) =>
+                                setCivilServiceEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, rating: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Date of Examination / Confinement</Label>
+                            <Input
+                              type="date"
+                              value={entry.examDate}
+                              onChange={(e) =>
+                                setCivilServiceEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, examDate: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Place of Examination / Confinement</Label>
+                            <Input
+                              value={entry.examPlace}
+                              onChange={(e) =>
+                                setCivilServiceEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, examPlace: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">License Number</Label>
+                            <Input
+                              value={entry.licenseNumber}
+                              onChange={(e) =>
+                                setCivilServiceEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, licenseNumber: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Date of Validity</Label>
+                            <Input
+                              type="date"
+                              value={entry.licenseValidUntil}
+                              onChange={(e) =>
+                                setCivilServiceEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, licenseValidUntil: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-end">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            disabled={civilServiceEntries.length === 1}
+                            onClick={() =>
+                              setCivilServiceEntries((prev) =>
+                                prev.length === 1 ? prev : prev.filter((_, itemIndex) => itemIndex !== index)
+                              )
+                            }
+                          >
+                            Remove Row
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              </div>
+
+              <div id="create-section-5" className={createSectionIndex === 4 ? "space-y-2" : "hidden"}>
+              <div className="space-y-2">
+                <Label>V. Work Experience</Label>
+                <div className="space-y-2 rounded-md border border-border/60 p-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Work Experience Records</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setWorkExperienceEntries((prev) => [...prev, createWorkExperienceEntry()])}
+                    >
+                      Add Work Row
+                    </Button>
+                  </div>
+                  <div className="space-y-3">
+                    {workExperienceEntries.map((entry, index) => (
+                      <div key={`work-experience-${index}`} className="space-y-2 rounded-md border border-border/60 p-3">
+                        <div className="space-y-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Inclusive Dates From</Label>
+                            <Input
+                              type="date"
+                              value={entry.dateFrom}
+                              onChange={(e) =>
+                                setWorkExperienceEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, dateFrom: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Inclusive Dates To</Label>
+                            <Input
+                              type="date"
+                              value={entry.dateTo}
+                              onChange={(e) =>
+                                setWorkExperienceEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, dateTo: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Position Title</Label>
+                            <Input
+                              value={entry.positionTitle}
+                              onChange={(e) =>
+                                setWorkExperienceEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, positionTitle: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Department / Agency / Office / Company</Label>
+                            <Input
+                              value={entry.departmentAgencyOfficeCompany}
+                              onChange={(e) =>
+                                setWorkExperienceEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, departmentAgencyOfficeCompany: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Status of Appointment</Label>
+                            <Input
+                              value={entry.statusOfAppointment}
+                              onChange={(e) =>
+                                setWorkExperienceEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, statusOfAppointment: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="rounded-md border border-border/60 px-3 py-2">
+                            <Label className="text-xs text-muted-foreground">Gov't Service (Y/N)</Label>
+                            <div className="mt-2 flex items-center gap-4">
+                              <label className="flex items-center gap-2 text-sm">
+                                <input
+                                  type="radio"
+                                  name={`govt-service-${index}`}
+                                  checked={entry.isGovtService === "Y"}
+                                  onChange={() =>
+                                    setWorkExperienceEntries((prev) =>
+                                      prev.map((item, itemIndex) =>
+                                        itemIndex === index ? { ...item, isGovtService: "Y" } : item
+                                      )
+                                    )
+                                  }
+                                />
+                                Yes
+                              </label>
+                              <label className="flex items-center gap-2 text-sm">
+                                <input
+                                  type="radio"
+                                  name={`govt-service-${index}`}
+                                  checked={entry.isGovtService === "N"}
+                                  onChange={() =>
+                                    setWorkExperienceEntries((prev) =>
+                                      prev.map((item, itemIndex) =>
+                                        itemIndex === index ? { ...item, isGovtService: "N" } : item
+                                      )
+                                    )
+                                  }
+                                />
+                                No
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex justify-end">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            disabled={workExperienceEntries.length === 1}
+                            onClick={() =>
+                              setWorkExperienceEntries((prev) =>
+                                prev.length === 1 ? prev : prev.filter((_, itemIndex) => itemIndex !== index)
+                              )
+                            }
+                          >
+                            Remove Row
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              </div>
+
+              <div id="create-section-6" className={createSectionIndex === 5 ? "space-y-2" : "hidden"}>
+              <div className="space-y-2">
+                <Label>VI. Voluntary Work or Involvement in Civic/Non-Government/People/Voluntary Organizations</Label>
+                <div className="space-y-2 rounded-md border border-border/60 p-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Voluntary Work Records</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setVoluntaryWorkEntries((prev) => [...prev, createVoluntaryWorkEntry()])}
+                    >
+                      Add Voluntary Work Row
+                    </Button>
+                  </div>
+                  <div className="space-y-3">
+                    {voluntaryWorkEntries.map((entry, index) => (
+                      <div key={`voluntary-work-${index}`} className="space-y-2 rounded-md border border-border/60 p-3">
+                        <div className="space-y-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Name and Address of Organization</Label>
+                            <Input
+                              value={entry.organizationNameAddress}
+                              onChange={(e) =>
+                                setVoluntaryWorkEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, organizationNameAddress: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Number of Hours</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={entry.numberOfHours}
+                              onChange={(e) =>
+                                setVoluntaryWorkEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, numberOfHours: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Inclusive Dates From</Label>
+                            <Input
+                              type="date"
+                              value={entry.dateFrom}
+                              onChange={(e) =>
+                                setVoluntaryWorkEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, dateFrom: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Inclusive Dates To</Label>
+                            <Input
+                              type="date"
+                              value={entry.dateTo}
+                              onChange={(e) =>
+                                setVoluntaryWorkEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, dateTo: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Position / Nature of Work</Label>
+                            <Input
+                              value={entry.positionNatureOfWork}
+                              onChange={(e) =>
+                                setVoluntaryWorkEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, positionNatureOfWork: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-end">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            disabled={voluntaryWorkEntries.length === 1}
+                            onClick={() =>
+                              setVoluntaryWorkEntries((prev) =>
+                                prev.length === 1 ? prev : prev.filter((_, itemIndex) => itemIndex !== index)
+                              )
+                            }
+                          >
+                            Remove Row
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              </div>
+
+              <div id="create-section-7" className={createSectionIndex === 6 ? "space-y-2" : "hidden"}>
+              <div className="space-y-2">
+                <Label>VII. Learning and Development (L&D) Interventions/Training Programs Attended</Label>
+                <div className="space-y-2 rounded-md border border-border/60 p-3">
+                  <div className="flex items-center justify-between">
+                    <Label>L&D Records</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setTrainingEntries((prev) => [...prev, createTrainingEntry()])}
+                    >
+                      Add L&D Row
+                    </Button>
+                  </div>
+                  <div className="space-y-3">
+                    {trainingEntries.map((entry, index) => (
+                      <div key={`training-${index}`} className="space-y-2 rounded-md border border-border/60 p-3">
+                        <div className="space-y-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Title of Learning and Development Intervention/Training Program</Label>
+                            <Input
+                              value={entry.title}
+                              onChange={(e) =>
+                                setTrainingEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, title: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Inclusive Dates From</Label>
+                            <Input
+                              type="date"
+                              value={entry.dateFrom}
+                              onChange={(e) =>
+                                setTrainingEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, dateFrom: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Inclusive Dates To</Label>
+                            <Input
+                              type="date"
+                              value={entry.dateTo}
+                              onChange={(e) =>
+                                setTrainingEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, dateTo: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Number of Hours</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={entry.numberOfHours}
+                              onChange={(e) =>
+                                setTrainingEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, numberOfHours: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Type of L&D (Managerial / Supervisory / Technical)</Label>
+                            <Input
+                              value={entry.typeOfLd}
+                              onChange={(e) =>
+                                setTrainingEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, typeOfLd: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Conducted / Sponsored By</Label>
+                            <Input
+                              value={entry.conductedSponsoredBy}
+                              onChange={(e) =>
+                                setTrainingEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, conductedSponsoredBy: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-end">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            disabled={trainingEntries.length === 1}
+                            onClick={() =>
+                              setTrainingEntries((prev) =>
+                                prev.length === 1 ? prev : prev.filter((_, itemIndex) => itemIndex !== index)
+                              )
+                            }
+                          >
+                            Remove Row
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              </div>
+
+              <div id="create-section-8" className={createSectionIndex === 7 ? "space-y-2" : "hidden"}>
+              <div className="space-y-2">
+                <Label>VIII. Other Information</Label>
+                <div className="space-y-2 rounded-md border border-border/60 p-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Other Information Records</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setOtherInfoEntries((prev) => [...prev, createOtherInfoEntry()])}
+                    >
+                      Add Other Info Row
+                    </Button>
+                  </div>
+                  <div className="space-y-3">
+                    {otherInfoEntries.map((entry, index) => (
+                      <div key={`other-info-${index}`} className="space-y-2 rounded-md border border-border/60 p-3">
+                        <div className="space-y-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Special Skills and Hobbies</Label>
+                            <Input
+                              value={entry.specialSkillsHobbies}
+                              onChange={(e) =>
+                                setOtherInfoEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, specialSkillsHobbies: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Non-Academic Distinctions / Recognition</Label>
+                            <Input
+                              value={entry.nonAcademicDistinctionsRecognition}
+                              onChange={(e) =>
+                                setOtherInfoEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, nonAcademicDistinctionsRecognition: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-medium">Membership in Association/Organization</Label>
+                            <Input
+                              value={entry.membershipsAssociationOrganization}
+                              onChange={(e) =>
+                                setOtherInfoEntries((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, membershipsAssociationOrganization: e.target.value } : item
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-end">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            disabled={otherInfoEntries.length === 1}
+                            onClick={() =>
+                              setOtherInfoEntries((prev) =>
+                                prev.length === 1 ? prev : prev.filter((_, itemIndex) => itemIndex !== index)
+                              )
+                            }
+                          >
+                            Remove Row
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Upload Documents</Label>
                 <div className="space-y-3">
-                  {/* Resume */}
+                  {/* PDS */}
                   <div className="space-y-1.5">
-                    <span className="text-xs font-medium text-muted-foreground"><span className="text-red-500">*</span> Upload Resume</span>
+                    <span className="text-xs font-medium text-muted-foreground"><span className="text-red-500">*</span> Upload PDS</span>
                     <input
                       id="resume"
                       type="file"
-                      accept=".pdf,.docx,.txt"
+                      accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.webp"
                       onChange={(e) => {
                         const file = e.target.files?.[0] ?? null;
                         setDocuments((prev) => ({ ...prev, resume: file }));
@@ -976,8 +2873,9 @@ export default function Applicants() {
                   onClick={handleScanResumeAutofill}
                   disabled={!documents.resume || isScanningResume}
                 >
-                  {isScanningResume ? "Scanning Resume..." : "Scan Resume & Autofill Fields"}
+                  {isScanningResume ? "Scanning PDS..." : "Scan PDS & Autofill Fields"}
                 </Button>
+              </div>
               </div>
 
               <div className="flex justify-end gap-3">
@@ -991,7 +2889,19 @@ export default function Applicants() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={createMutation.isPending}>Save Applicant</Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handlePreviousCreateSection}
+                  disabled={createSectionIndex === 0}
+                >
+                  Previous Section
+                </Button>
+                {createSectionIndex < createSectionIds.length - 1 ? (
+                  <Button type="button" onClick={handleNextCreateSection}>Next Section</Button>
+                ) : (
+                  <Button type="submit" disabled={createMutation.isPending}>Save Applicant</Button>
+                )}
               </div>
             </form>
           </DialogContent>
@@ -1034,6 +2944,68 @@ export default function Applicants() {
                     placeholder="email@example.com"
                     value={editFormState.email}
                     onChange={(e) => setEditFormState((prev) => ({ ...prev, email: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Date of Birth</Label>
+                  <Input
+                    placeholder="MM/DD/YYYY"
+                    value={editFormState.dateOfBirth}
+                    onChange={(e) => setEditFormState((prev) => ({ ...prev, dateOfBirth: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Sex</Label>
+                  <Input
+                    placeholder="Male or Female"
+                    value={editFormState.sex}
+                    onChange={(e) => setEditFormState((prev) => ({ ...prev, sex: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Civil Status</Label>
+                  <Input
+                    placeholder="Single, Married, etc."
+                    value={editFormState.civilStatus}
+                    onChange={(e) => setEditFormState((prev) => ({ ...prev, civilStatus: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Citizenship</Label>
+                  <Input
+                    placeholder="Filipino"
+                    value={editFormState.citizenship}
+                    onChange={(e) => setEditFormState((prev) => ({ ...prev, citizenship: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Height</Label>
+                  <Input
+                    placeholder="e.g. 1.57 m"
+                    value={editFormState.height}
+                    onChange={(e) => setEditFormState((prev) => ({ ...prev, height: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Weight</Label>
+                  <Input
+                    placeholder="e.g. 48 kg"
+                    value={editFormState.weight}
+                    onChange={(e) => setEditFormState((prev) => ({ ...prev, weight: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Blood Type</Label>
+                  <Input
+                    placeholder="A+, B+, O-, etc."
+                    value={editFormState.bloodType}
+                    onChange={(e) => setEditFormState((prev) => ({ ...prev, bloodType: e.target.value }))}
                   />
                 </div>
               </div>
@@ -1095,13 +3067,13 @@ export default function Applicants() {
                 <div className="space-y-2">
                   <p className="text-xs font-medium text-muted-foreground">Add New Documents</p>
                   
-                  {/* Resume */}
+                  {/* PDS */}
                   <div className="space-y-1.5">
-                    <span className="text-xs font-medium text-muted-foreground"><span className="text-red-500">*</span> Upload Resume</span>
+                    <span className="text-xs font-medium text-muted-foreground"><span className="text-red-500">*</span> Upload PDS</span>
                     <input
                       id="edit-resume"
                       type="file"
-                      accept=".pdf,.docx,.txt"
+                      accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.webp"
                       onChange={(e) => {
                         const file = e.target.files?.[0] ?? null;
                         setEditDocuments((prev) => ({ ...prev, resume: file }));
@@ -1341,8 +3313,50 @@ export default function Applicants() {
                                     setEditFormState({
                                       fullName: applicant.fullName,
                                       contactNumber: applicant.contactNumber,
+                                      telephoneNumber: applicant.telephoneNumber,
                                       email: applicant.email,
                                       address: applicant.address,
+                                      permanentAddress: applicant.permanentAddress,
+                                      dateOfBirth: applicant.dateOfBirth,
+                                      placeOfBirth: applicant.placeOfBirth,
+                                      sex: applicant.sex,
+                                      civilStatus: applicant.civilStatus,
+                                      citizenship: applicant.citizenship,
+                                      height: applicant.height,
+                                      weight: applicant.weight,
+                                      bloodType: applicant.bloodType,
+                                      gsisIdNo: applicant.gsisIdNo,
+                                      philsysNo: applicant.philsysNo,
+                                      pagibigIdNo: applicant.pagibigIdNo,
+                                      philhealthNo: applicant.philhealthNo,
+                                      citizenshipDetails: applicant.citizenshipDetails,
+                                      sssNo: applicant.sssNo,
+                                      tinNo: applicant.tinNo,
+                                      agencyEmployeeNo: applicant.agencyEmployeeNo,
+                                      spouseName: applicant.spouseName,
+                                      spouseSurname: applicant.spouseSurname,
+                                      spouseFirstName: applicant.spouseFirstName,
+                                      spouseMiddleName: applicant.spouseMiddleName,
+                                      spouseNameExtension: applicant.spouseNameExtension,
+                                      spouseOccupation: applicant.spouseOccupation,
+                                      spouseEmployerBusinessName: applicant.spouseEmployerBusinessName,
+                                      spouseBusinessAddress: applicant.spouseBusinessAddress,
+                                      spouseTelephoneNo: applicant.spouseTelephoneNo,
+                                      childrenInfo: applicant.childrenInfo,
+                                      fatherName: applicant.fatherName,
+                                      fatherSurname: applicant.fatherSurname,
+                                      fatherFirstName: applicant.fatherFirstName,
+                                      fatherMiddleName: applicant.fatherMiddleName,
+                                      fatherNameExtension: applicant.fatherNameExtension,
+                                      motherName: applicant.motherName,
+                                      motherSurname: applicant.motherSurname,
+                                      motherFirstName: applicant.motherFirstName,
+                                      motherMiddleName: applicant.motherMiddleName,
+                                      civilServiceEligibility: applicant.civilServiceEligibility,
+                                      voluntaryWork: applicant.voluntaryWork,
+                                      trainings: applicant.trainings,
+                                      otherInfo: applicant.otherInfo,
+                                      referencesInfo: applicant.referencesInfo,
                                       educationalBackground: applicant.educationalBackground,
                                       workExperience: applicant.workExperience
                                     });
@@ -1414,6 +3428,36 @@ export default function Applicants() {
                     </div>
                     <div className="flex items-center gap-2 text-muted-foreground sm:col-span-2">
                       <MapPin className="w-4 h-4 flex-shrink-0" /> <span className="truncate">{applicant.address}</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2">
+                      <p className="text-muted-foreground">Date of Birth</p>
+                      <p className="font-medium text-foreground">{applicant.dateOfBirth || "N/A"}</p>
+                    </div>
+                    <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2">
+                      <p className="text-muted-foreground">Sex</p>
+                      <p className="font-medium text-foreground">{applicant.sex || "N/A"}</p>
+                    </div>
+                    <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2">
+                      <p className="text-muted-foreground">Civil Status</p>
+                      <p className="font-medium text-foreground">{applicant.civilStatus || "N/A"}</p>
+                    </div>
+                    <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2">
+                      <p className="text-muted-foreground">Citizenship</p>
+                      <p className="font-medium text-foreground">{applicant.citizenship || "N/A"}</p>
+                    </div>
+                    <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2">
+                      <p className="text-muted-foreground">Height</p>
+                      <p className="font-medium text-foreground">{applicant.height || "N/A"}</p>
+                    </div>
+                    <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2">
+                      <p className="text-muted-foreground">Weight</p>
+                      <p className="font-medium text-foreground">{applicant.weight || "N/A"}</p>
+                    </div>
+                    <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 sm:col-span-2">
+                      <p className="text-muted-foreground">Blood Type</p>
+                      <p className="font-medium text-foreground">{applicant.bloodType || "N/A"}</p>
                     </div>
                   </div>
                   <div className="text-sm space-y-2">

@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import multer from "multer";
 import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
+import Tesseract from "tesseract.js";
 import nodemailer from "nodemailer";
 import { initDb, query } from "./db.js";
 import { ensureDepartments, ensureTestAccounts, seedIfEmpty } from "./seed.js";
@@ -196,8 +197,50 @@ function mapApplicant(row: any) {
     id: row.id,
     fullName: row.full_name,
     contactNumber: row.contact_number,
+    telephoneNumber: row.telephone_number ?? "",
     email: row.email,
     address: row.address,
+    permanentAddress: row.permanent_address ?? "",
+    dateOfBirth: row.date_of_birth ?? "",
+    placeOfBirth: row.place_of_birth ?? "",
+    sex: row.sex ?? "",
+    civilStatus: row.civil_status ?? "",
+    citizenship: row.citizenship ?? "",
+    height: row.height ?? "",
+    weight: row.weight ?? "",
+    bloodType: row.blood_type ?? "",
+    gsisIdNo: row.gsis_id_no ?? "",
+    philsysNo: row.philsys_no ?? "",
+    pagibigIdNo: row.pagibig_id_no ?? "",
+    philhealthNo: row.philhealth_no ?? "",
+    citizenshipDetails: row.citizenship_details ?? "",
+    sssNo: row.sss_no ?? "",
+    tinNo: row.tin_no ?? "",
+    agencyEmployeeNo: row.agency_employee_no ?? "",
+    spouseName: row.spouse_name ?? "",
+    spouseSurname: row.spouse_surname ?? "",
+    spouseFirstName: row.spouse_first_name ?? "",
+    spouseMiddleName: row.spouse_middle_name ?? "",
+    spouseNameExtension: row.spouse_name_extension ?? "",
+    spouseOccupation: row.spouse_occupation ?? "",
+    spouseEmployerBusinessName: row.spouse_employer_business_name ?? "",
+    spouseBusinessAddress: row.spouse_business_address ?? "",
+    spouseTelephoneNo: row.spouse_telephone_no ?? "",
+    childrenInfo: row.children_info ?? "",
+    fatherName: row.father_name ?? "",
+    fatherSurname: row.father_surname ?? "",
+    fatherFirstName: row.father_first_name ?? "",
+    fatherMiddleName: row.father_middle_name ?? "",
+    fatherNameExtension: row.father_name_extension ?? "",
+    motherName: row.mother_name ?? "",
+    motherSurname: row.mother_surname ?? "",
+    motherFirstName: row.mother_first_name ?? "",
+    motherMiddleName: row.mother_middle_name ?? "",
+    civilServiceEligibility: row.civil_service_eligibility ?? "",
+    voluntaryWork: row.voluntary_work ?? "",
+    trainings: row.trainings ?? "",
+    otherInfo: row.other_info ?? "",
+    referencesInfo: row.references_info ?? "",
     educationalBackground: row.educational_background,
     workExperience: row.work_experience
   };
@@ -366,7 +409,9 @@ async function sendApplicationStatusEmail(payload: {
       status: "disabled" as const,
       providerResponse: "SMTP is not configured.",
       subject,
-      html
+      html,
+      accepted: [] as string[],
+      rejected: [] as string[]
     };
   }
 
@@ -393,7 +438,9 @@ async function sendApplicationStatusEmail(payload: {
     providerResponse: info.response ?? "Accepted by SMTP transport",
     messageId: info.messageId,
     subject,
-    html
+    html,
+    accepted: info.accepted,
+    rejected: info.rejected
   };
 }
 
@@ -419,8 +466,50 @@ function mapHistory(row: any) {
 type ParsedApplicantDraft = {
   fullName: string;
   contactNumber: string;
+  telephoneNumber: string;
   email: string;
   address: string;
+  permanentAddress: string;
+  dateOfBirth: string;
+  placeOfBirth: string;
+  sex: string;
+  civilStatus: string;
+  citizenship: string;
+  height: string;
+  weight: string;
+  bloodType: string;
+  gsisIdNo: string;
+  philsysNo: string;
+  pagibigIdNo: string;
+  philhealthNo: string;
+  citizenshipDetails: string;
+  sssNo: string;
+  tinNo: string;
+  agencyEmployeeNo: string;
+  spouseName: string;
+  spouseSurname: string;
+  spouseFirstName: string;
+  spouseMiddleName: string;
+  spouseNameExtension: string;
+  spouseOccupation: string;
+  spouseEmployerBusinessName: string;
+  spouseBusinessAddress: string;
+  spouseTelephoneNo: string;
+  childrenInfo: string;
+  fatherName: string;
+  fatherSurname: string;
+  fatherFirstName: string;
+  fatherMiddleName: string;
+  fatherNameExtension: string;
+  motherName: string;
+  motherSurname: string;
+  motherFirstName: string;
+  motherMiddleName: string;
+  civilServiceEligibility: string;
+  voluntaryWork: string;
+  trainings: string;
+  otherInfo: string;
+  referencesInfo: string;
   educationalBackground: string;
   workExperience: string;
   rawTextLength: number;
@@ -430,7 +519,10 @@ function cleanupExtractedText(value: string) {
   return value
     .replace(/\r/g, "")
     .replace(/\t/g, " ")
-    .replace(/(?<!\n)(Name Details|Contact Number|Phone|Mobile|Email|Address|Location|Educational Background|Education|Work Experience|Experience)\b/gi, "\n$1")
+    .replace(
+      /(?<!\n)(Name Details|Surname|First Name|Middle Name|Name Extension|Ext\.?|Contact Number|Phone|Mobile|Telephone|Email|E-mail|Address|Location|Residential Address|Permanent Address|Educational Background|Education|Work Experience|Experience)\b/gi,
+      "\n$1"
+    )
     .replace(/[ ]{2,}/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
@@ -508,6 +600,69 @@ function pickAddressCandidate(lines: string[]) {
   );
 }
 
+function extractPdsName(text: string) {
+  const surname = extractLabeledValue(text, ["surname"], ["first name", "middle name", "name extension", "ext.", "ext", "citizenship", "civil status"]);
+  const firstName = extractLabeledValue(text, ["first name"], ["middle name", "surname", "name extension", "ext.", "ext", "citizenship", "civil status"]);
+  const middleName = extractLabeledValue(text, ["middle name"], ["surname", "first name", "name extension", "ext.", "ext", "citizenship", "civil status"]);
+  const extensionName = extractLabeledValue(text, ["name extension", "ext.", "ext"], ["citizenship", "civil status", "date of birth", "place of birth", "sex"]);
+
+  const combined = [firstName, middleName, surname, extensionName]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return combined;
+}
+
+function extractPdsAddress(text: string) {
+  const residentialAddress = extractLabeledValue(
+    text,
+    ["residential address"],
+    ["permanent address", "zip code", "telephone", "mobile", "email", "educational background", "work experience"]
+  );
+  const permanentAddress = extractLabeledValue(
+    text,
+    ["permanent address"],
+    ["residential address", "zip code", "telephone", "mobile", "email", "educational background", "work experience"]
+  );
+
+  return residentialAddress || permanentAddress;
+}
+
+function extractPdsEmail(text: string) {
+  const labeledEmail = extractLabeledValue(
+    text,
+    ["email address", "e-mail address", "email"],
+    ["residential address", "permanent address", "educational background", "work experience", "phone", "mobile"]
+  );
+  return normalizeEmailCandidate(labeledEmail) || extractEmailFromText(text);
+}
+
+function extractPdsContactNumber(text: string) {
+  const labeledPhone = extractLabeledValue(
+    text,
+    ["mobile number", "cellphone number", "telephone no.", "telephone no", "telephone number", "contact number"],
+    ["email", "address", "educational background", "work experience"]
+  );
+  if (labeledPhone && /\d{7,}/.test(labeledPhone)) {
+    const match = labeledPhone.match(/[\d+\s\-()]+/)?.[0];
+    if (match) {
+      const cleaned = match.replace(/\D+/g, "").slice(0, 20);
+      if (/\d{7,}/.test(cleaned)) {
+        return cleaned;
+      }
+    }
+  }
+
+  return extractPhoneNumber(text);
+}
+
+function extractPdsSimpleField(text: string, labels: string[], stopLabels: string[] = []) {
+  return extractLabeledValue(text, labels, stopLabels).trim();
+}
+
 function extractEmailFromText(text: string) {
   const directMatch = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,10}/i)?.[0];
   if (directMatch) return directMatch;
@@ -571,24 +726,75 @@ function extractPhoneNumber(text: string): string {
 function parseApplicantDraftFromText(rawText: string): ParsedApplicantDraft {
   const text = cleanupExtractedText(rawText);
   const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
+  const looksLikePds = /personal data sheet|surname|first name|middle name|residential address|permanent address|citizenship|civil status/i.test(text);
 
-  const labeledEmail = extractLabeledValue(text, ["email", "e-mail"], ["phone", "mobile", "contact", "address", "education", "experience"]);
-  const emailMatch = normalizeEmailCandidate(labeledEmail) || extractEmailFromText(text);
-  const contactNumber = extractPhoneNumber(text);
-  const addressMatch = extractLabeledValue(
-    text,
-    ["address", "location"],
-    ["education", "educational background", "experience", "work experience", "skills", "references"]
-  );
+  const emailMatch = looksLikePds ? extractPdsEmail(text) : (normalizeEmailCandidate(extractLabeledValue(text, ["email", "e-mail"], ["phone", "mobile", "contact", "address", "education", "experience"])) || extractEmailFromText(text));
+  const contactNumber = looksLikePds ? extractPdsContactNumber(text) : extractPhoneNumber(text);
+  const addressMatch = looksLikePds
+    ? extractPdsAddress(text)
+    : extractLabeledValue(
+        text,
+        ["address", "location"],
+        ["education", "educational background", "experience", "work experience", "skills", "references"]
+      );
+  const dateOfBirth = looksLikePds ? extractPdsSimpleField(text, ["date of birth", "dob"], ["place of birth", "sex", "civil status", "citizenship"]) : "";
+  const sex = looksLikePds ? extractPdsSimpleField(text, ["sex"], ["civil status", "citizenship", "height", "weight", "blood type"]) : "";
+  const civilStatus = looksLikePds ? extractPdsSimpleField(text, ["civil status"], ["citizenship", "height", "weight", "blood type"]) : "";
+  const citizenship = looksLikePds ? extractPdsSimpleField(text, ["citizenship"], ["height", "weight", "blood type", "residential address"]) : "";
+  const height = looksLikePds ? extractPdsSimpleField(text, ["height"], ["weight", "blood type", "agency employee no", "email address"]) : "";
+  const weight = looksLikePds ? extractPdsSimpleField(text, ["weight"], ["blood type", "agency employee no", "email address"]) : "";
+  const bloodType = looksLikePds ? extractPdsSimpleField(text, ["blood type"], ["gsis id no", "pag-ibig id no", "philhealth no", "sss no", "tin no", "agency employee no"]) : "";
 
   const educationalBackground = pickSection(text, ["education", "educational background", "academic background"]);
   const workExperience = pickSection(text, ["work experience", "experience", "employment history"]);
 
   return {
-    fullName: pickNameCandidate(lines).slice(0, 120),
+    fullName: (looksLikePds ? extractPdsName(text) : "") || pickNameCandidate(lines).slice(0, 120),
     contactNumber: contactNumber,
+    telephoneNumber: "",
     email: emailMatch.slice(0, 120),
     address: (addressMatch || pickAddressCandidate(lines)).slice(0, 200),
+    permanentAddress: "",
+    dateOfBirth: dateOfBirth.slice(0, 50),
+    placeOfBirth: "",
+    sex: sex.slice(0, 20),
+    civilStatus: civilStatus.slice(0, 30),
+    citizenship: citizenship.slice(0, 40),
+    height: height.slice(0, 20),
+    weight: weight.slice(0, 20),
+    bloodType: bloodType.slice(0, 10),
+    gsisIdNo: "",
+    philsysNo: "",
+    pagibigIdNo: "",
+    philhealthNo: "",
+    citizenshipDetails: "",
+    sssNo: "",
+    tinNo: "",
+    agencyEmployeeNo: "",
+    spouseName: "",
+    spouseSurname: "",
+    spouseFirstName: "",
+    spouseMiddleName: "",
+    spouseNameExtension: "",
+    spouseOccupation: "",
+    spouseEmployerBusinessName: "",
+    spouseBusinessAddress: "",
+    spouseTelephoneNo: "",
+    childrenInfo: "",
+    fatherName: "",
+    fatherSurname: "",
+    fatherFirstName: "",
+    fatherMiddleName: "",
+    fatherNameExtension: "",
+    motherName: "",
+    motherSurname: "",
+    motherFirstName: "",
+    motherMiddleName: "",
+    civilServiceEligibility: "",
+    voluntaryWork: "",
+    trainings: "",
+    otherInfo: "",
+    referencesInfo: "",
     educationalBackground,
     workExperience,
     rawTextLength: text.length
@@ -598,6 +804,7 @@ function parseApplicantDraftFromText(rawText: string): ParsedApplicantDraft {
 async function extractTextFromUploadedDocument(file: Express.Multer.File) {
   const extension = path.extname(file.originalname).toLowerCase();
   const mime = file.mimetype.toLowerCase();
+  const isImageFile = [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"].includes(extension) || mime.startsWith("image/");
 
   if (extension === ".txt" || mime.includes("text/plain")) {
     return file.buffer.toString("utf8");
@@ -615,7 +822,12 @@ async function extractTextFromUploadedDocument(file: Express.Multer.File) {
     return parsed.text;
   }
 
-  throw new Error("Unsupported file type. Please upload PDF, DOCX, or TXT.");
+  if (isImageFile) {
+    const result = await Tesseract.recognize(file.buffer, "eng");
+    return result.data.text;
+  }
+
+  throw new Error("Unsupported file type. Please upload PDF, DOCX, TXT, or an image file.");
 }
 
 function mapEvaluation(row: any) {
@@ -1112,7 +1324,56 @@ app.post("/api/applicants/parse-document", requireAuth, parseUpload.single("file
 }));
 
 app.post("/api/applicants", requireAuth, asyncHandler(async (req: AuthedRequest, res) => {
-  const { fullName, contactNumber, email, address, educationalBackground, workExperience } = req.body as any;
+  const {
+    fullName,
+    contactNumber,
+    telephoneNumber = "",
+    email,
+    address,
+    permanentAddress = "",
+    dateOfBirth = "",
+    placeOfBirth = "",
+    sex = "",
+    civilStatus = "",
+    citizenship = "",
+    height = "",
+    weight = "",
+    bloodType = "",
+    gsisIdNo = "",
+    philsysNo = "",
+    pagibigIdNo = "",
+    philhealthNo = "",
+    citizenshipDetails = "",
+    sssNo = "",
+    tinNo = "",
+    agencyEmployeeNo = "",
+    spouseName = "",
+    spouseSurname = "",
+    spouseFirstName = "",
+    spouseMiddleName = "",
+    spouseNameExtension = "",
+    spouseOccupation = "",
+    spouseEmployerBusinessName = "",
+    spouseBusinessAddress = "",
+    spouseTelephoneNo = "",
+    childrenInfo = "",
+    fatherName = "",
+    fatherSurname = "",
+    fatherFirstName = "",
+    fatherMiddleName = "",
+    fatherNameExtension = "",
+    motherName = "",
+    motherSurname = "",
+    motherFirstName = "",
+    motherMiddleName = "",
+    civilServiceEligibility = "",
+    voluntaryWork = "",
+    trainings = "",
+    otherInfo = "",
+    referencesInfo = "",
+    educationalBackground,
+    workExperience
+  } = req.body as any;
   if (!fullName || !contactNumber || !email || !address || !educationalBackground || !workExperience) {
     res.status(400).json({ error: "Missing required fields" });
     return;
@@ -1122,20 +1383,104 @@ app.post("/api/applicants", requireAuth, asyncHandler(async (req: AuthedRequest,
     id: randomUUID(),
     fullName,
     contactNumber,
+    telephoneNumber,
     email,
     address,
+    permanentAddress,
+    dateOfBirth,
+    placeOfBirth,
+    sex,
+    civilStatus,
+    citizenship,
+    height,
+    weight,
+    bloodType,
+    gsisIdNo,
+    philsysNo,
+    pagibigIdNo,
+    philhealthNo,
+    citizenshipDetails,
+    sssNo,
+    tinNo,
+    agencyEmployeeNo,
+    spouseName,
+    spouseSurname,
+    spouseFirstName,
+    spouseMiddleName,
+    spouseNameExtension,
+    spouseOccupation,
+    spouseEmployerBusinessName,
+    spouseBusinessAddress,
+    spouseTelephoneNo,
+    childrenInfo,
+    fatherName,
+    fatherSurname,
+    fatherFirstName,
+    fatherMiddleName,
+    fatherNameExtension,
+    motherName,
+    motherSurname,
+    motherFirstName,
+    motherMiddleName,
+    civilServiceEligibility,
+    voluntaryWork,
+    trainings,
+    otherInfo,
+    referencesInfo,
     educationalBackground,
     workExperience
   };
 
   await query(
-    "INSERT INTO applicants (id, full_name, contact_number, email, address, educational_background, work_experience) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+    "INSERT INTO applicants (id, full_name, contact_number, telephone_number, email, address, permanent_address, date_of_birth, place_of_birth, sex, civil_status, citizenship, height, weight, blood_type, gsis_id_no, philsys_no, pagibig_id_no, philhealth_no, citizenship_details, sss_no, tin_no, agency_employee_no, spouse_name, spouse_surname, spouse_first_name, spouse_middle_name, spouse_name_extension, spouse_occupation, spouse_employer_business_name, spouse_business_address, spouse_telephone_no, children_info, father_name, father_surname, father_first_name, father_middle_name, father_name_extension, mother_name, mother_surname, mother_first_name, mother_middle_name, civil_service_eligibility, voluntary_work, trainings, other_info, references_info, educational_background, work_experience) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49)",
     [
       applicant.id,
       applicant.fullName,
       applicant.contactNumber,
+      applicant.telephoneNumber,
       applicant.email,
       applicant.address,
+      applicant.permanentAddress,
+      applicant.dateOfBirth,
+      applicant.placeOfBirth,
+      applicant.sex,
+      applicant.civilStatus,
+      applicant.citizenship,
+      applicant.height,
+      applicant.weight,
+      applicant.bloodType,
+      applicant.gsisIdNo,
+      applicant.philsysNo,
+      applicant.pagibigIdNo,
+      applicant.philhealthNo,
+      applicant.citizenshipDetails,
+      applicant.sssNo,
+      applicant.tinNo,
+      applicant.agencyEmployeeNo,
+      applicant.spouseName,
+      applicant.spouseSurname,
+      applicant.spouseFirstName,
+      applicant.spouseMiddleName,
+      applicant.spouseNameExtension,
+      applicant.spouseOccupation,
+      applicant.spouseEmployerBusinessName,
+      applicant.spouseBusinessAddress,
+      applicant.spouseTelephoneNo,
+      applicant.childrenInfo,
+      applicant.fatherName,
+      applicant.fatherSurname,
+      applicant.fatherFirstName,
+      applicant.fatherMiddleName,
+      applicant.fatherNameExtension,
+      applicant.motherName,
+      applicant.motherSurname,
+      applicant.motherFirstName,
+      applicant.motherMiddleName,
+      applicant.civilServiceEligibility,
+      applicant.voluntaryWork,
+      applicant.trainings,
+      applicant.otherInfo,
+      applicant.referencesInfo,
       applicant.educationalBackground,
       applicant.workExperience
     ]
@@ -1145,10 +1490,109 @@ app.post("/api/applicants", requireAuth, asyncHandler(async (req: AuthedRequest,
 }));
 
 app.put("/api/applicants/:id", requireAuth, asyncHandler(async (req: AuthedRequest, res) => {
-  const { fullName, contactNumber, email, address, educationalBackground, workExperience } = req.body as any;
+  const {
+    fullName,
+    contactNumber,
+    telephoneNumber = "",
+    email,
+    address,
+    permanentAddress = "",
+    dateOfBirth = "",
+    placeOfBirth = "",
+    sex = "",
+    civilStatus = "",
+    citizenship = "",
+    height = "",
+    weight = "",
+    bloodType = "",
+    gsisIdNo = "",
+    philsysNo = "",
+    pagibigIdNo = "",
+    philhealthNo = "",
+    citizenshipDetails = "",
+    sssNo = "",
+    tinNo = "",
+    agencyEmployeeNo = "",
+    spouseName = "",
+    spouseSurname = "",
+    spouseFirstName = "",
+    spouseMiddleName = "",
+    spouseNameExtension = "",
+    spouseOccupation = "",
+    spouseEmployerBusinessName = "",
+    spouseBusinessAddress = "",
+    spouseTelephoneNo = "",
+    childrenInfo = "",
+    fatherName = "",
+    fatherSurname = "",
+    fatherFirstName = "",
+    fatherMiddleName = "",
+    fatherNameExtension = "",
+    motherName = "",
+    motherSurname = "",
+    motherFirstName = "",
+    motherMiddleName = "",
+    civilServiceEligibility = "",
+    voluntaryWork = "",
+    trainings = "",
+    otherInfo = "",
+    referencesInfo = "",
+    educationalBackground,
+    workExperience
+  } = req.body as any;
   const result = await query(
-    "UPDATE applicants SET full_name=$2, contact_number=$3, email=$4, address=$5, educational_background=$6, work_experience=$7 WHERE id=$1 RETURNING *",
-    [req.params.id, fullName, contactNumber, email, address, educationalBackground, workExperience]
+    "UPDATE applicants SET full_name=$2, contact_number=$3, telephone_number=$4, email=$5, address=$6, permanent_address=$7, date_of_birth=$8, place_of_birth=$9, sex=$10, civil_status=$11, citizenship=$12, height=$13, weight=$14, blood_type=$15, gsis_id_no=$16, philsys_no=$17, pagibig_id_no=$18, philhealth_no=$19, citizenship_details=$20, sss_no=$21, tin_no=$22, agency_employee_no=$23, spouse_name=$24, spouse_surname=$25, spouse_first_name=$26, spouse_middle_name=$27, spouse_name_extension=$28, spouse_occupation=$29, spouse_employer_business_name=$30, spouse_business_address=$31, spouse_telephone_no=$32, children_info=$33, father_name=$34, father_surname=$35, father_first_name=$36, father_middle_name=$37, father_name_extension=$38, mother_name=$39, mother_surname=$40, mother_first_name=$41, mother_middle_name=$42, civil_service_eligibility=$43, voluntary_work=$44, trainings=$45, other_info=$46, references_info=$47, educational_background=$48, work_experience=$49 WHERE id=$1 RETURNING *",
+    [
+      req.params.id,
+      fullName,
+      contactNumber,
+      telephoneNumber,
+      email,
+      address,
+      permanentAddress,
+      dateOfBirth,
+      placeOfBirth,
+      sex,
+      civilStatus,
+      citizenship,
+      height,
+      weight,
+      bloodType,
+      gsisIdNo,
+      philsysNo,
+      pagibigIdNo,
+      philhealthNo,
+      citizenshipDetails,
+      sssNo,
+      tinNo,
+      agencyEmployeeNo,
+      spouseName,
+      spouseSurname,
+      spouseFirstName,
+      spouseMiddleName,
+      spouseNameExtension,
+      spouseOccupation,
+      spouseEmployerBusinessName,
+      spouseBusinessAddress,
+      spouseTelephoneNo,
+      childrenInfo,
+      fatherName,
+      fatherSurname,
+      fatherFirstName,
+      fatherMiddleName,
+      fatherNameExtension,
+      motherName,
+      motherSurname,
+      motherFirstName,
+      motherMiddleName,
+      civilServiceEligibility,
+      voluntaryWork,
+      trainings,
+      otherInfo,
+      referencesInfo,
+      educationalBackground,
+      workExperience
+    ]
   );
 
   if (result.rowCount === 0) {
@@ -1197,8 +1641,8 @@ app.post("/api/applicants/:id/documents", requireAuth, upload.single("file"), as
 
   const applicantId = req.params.id;
 
-  // For resume and transcript, replace existing ones; for certificates, add new ones
-  if (docType === "resume" || docType === "transcript") {
+  // For PDS, transcript, and similar primary attachments, replace existing ones; for certificates, add new ones.
+  if (docType === "pds" || docType === "resume" || docType === "transcript") {
     // Get and delete existing document of same type
     const existing = await query(
       "SELECT file_name FROM applicant_documents WHERE applicant_id = $1 AND doc_type = $2",
