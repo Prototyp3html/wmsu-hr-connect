@@ -97,8 +97,14 @@ export interface Application {
   remarks?: string;
   documentsComplete?: boolean;
   examScheduleDate?: string;
+  examScheduleTime?: string;
+  examVenue?: string;
   interviewScheduleDate?: string;
+  interviewScheduleTime?: string;
+  interviewVenue?: string;
   finalEvaluationDate?: string;
+  finalEvaluationTime?: string;
+  finalEvaluationVenue?: string;
 }
 
 export interface StatusHistory {

@@ -249,9 +249,14 @@ export async function updateApplicationStatus(payload: {
   remarks?: string;
   documentsComplete?: boolean;
   examScheduleDate?: string;
+  examScheduleTime?: string;
+  examVenue?: string;
   interviewScheduleDate?: string;
+  interviewScheduleTime?: string;
+  interviewVenue?: string;
   finalEvaluationDate?: string;
-  allowWorkflowSkip?: boolean;
+  finalEvaluationTime?: string;
+  finalEvaluationVenue?: string;
   notifyApplicant?: boolean;
   rejectionSubtype?: "not_qualified" | "non_teaching" | "teaching";
 }) {
@@ -262,9 +267,14 @@ export async function updateApplicationStatus(payload: {
       remarks: payload.remarks,
       documentsComplete: payload.documentsComplete,
       examScheduleDate: payload.examScheduleDate,
+      examScheduleTime: payload.examScheduleTime,
+      examVenue: payload.examVenue,
       interviewScheduleDate: payload.interviewScheduleDate,
+      interviewScheduleTime: payload.interviewScheduleTime,
+      interviewVenue: payload.interviewVenue,
       finalEvaluationDate: payload.finalEvaluationDate,
-      allowWorkflowSkip: payload.allowWorkflowSkip,
+      finalEvaluationTime: payload.finalEvaluationTime,
+      finalEvaluationVenue: payload.finalEvaluationVenue,
       notifyApplicant: payload.notifyApplicant,
       rejectionSubtype: payload.rejectionSubtype
     })

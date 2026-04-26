@@ -40,9 +40,14 @@ export default function ApplicationTracking() {
     remarks: string;
     documentsComplete: boolean;
     examScheduleDate: string;
+    examScheduleTime: string;
+    examVenue: string;
     interviewScheduleDate: string;
+    interviewScheduleTime: string;
+    interviewVenue: string;
     finalEvaluationDate: string;
-    allowWorkflowSkip: boolean;
+    finalEvaluationTime: string;
+    finalEvaluationVenue: string;
     notifyApplicant: boolean;
     rejectionSubtype?: "not_qualified" | "non_teaching" | "teaching";
   } | null>(null);
@@ -192,9 +197,14 @@ export default function ApplicationTracking() {
                           remarks: "",
                           documentsComplete: Boolean(app.documentsComplete),
                           examScheduleDate: app.examScheduleDate ?? "",
+                          examScheduleTime: app.examScheduleTime ?? "",
+                          examVenue: app.examVenue ?? "",
                           interviewScheduleDate: app.interviewScheduleDate ?? "",
+                          interviewScheduleTime: app.interviewScheduleTime ?? "",
+                          interviewVenue: app.interviewVenue ?? "",
                           finalEvaluationDate: app.finalEvaluationDate ?? "",
-                          allowWorkflowSkip: false,
+                          finalEvaluationTime: app.finalEvaluationTime ?? "",
+                          finalEvaluationVenue: app.finalEvaluationVenue ?? "",
                           notifyApplicant: true,
                           rejectionSubtype: undefined
                         });
@@ -231,17 +241,6 @@ export default function ApplicationTracking() {
                           <div className="rounded-md border p-3 space-y-3 bg-muted/20">
                             <div className="flex items-center justify-between gap-3">
                               <div>
-                                <Label htmlFor={`skip-workflow-${app.id}`}>Skip workflow order</Label>
-                                <p className="text-xs text-muted-foreground">Allow direct jump to Hired, Rejected, For Final Evaluation, or For Examination.</p>
-                              </div>
-                              <Switch
-                                id={`skip-workflow-${app.id}`}
-                                checked={statusForm?.allowWorkflowSkip ?? false}
-                                onCheckedChange={(checked) => setStatusForm((prev) => prev ? ({ ...prev, allowWorkflowSkip: checked }) : prev)}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between gap-3">
-                              <div>
                                 <Label htmlFor={`notify-applicant-${app.id}`}>Send email to applicant</Label>
                                 <p className="text-xs text-muted-foreground">Turn off if you do not want to send status email for this update.</p>
                               </div>
@@ -266,32 +265,62 @@ export default function ApplicationTracking() {
                             </div>
                           )}
                           {statusForm?.status === "For Examination" && (
-                            <div className="space-y-2">
-                              <Label>Examination Date</Label>
+                            <div className="space-y-2 rounded-md border p-3 bg-muted/30">
+                              <Label>Examination Schedule</Label>
                               <Input
                                 type="date"
                                 value={statusForm.examScheduleDate}
                                 onChange={(e) => setStatusForm((prev) => prev ? ({ ...prev, examScheduleDate: e.target.value }) : prev)}
                               />
+                              <Input
+                                type="time"
+                                value={statusForm.examScheduleTime}
+                                onChange={(e) => setStatusForm((prev) => prev ? ({ ...prev, examScheduleTime: e.target.value }) : prev)}
+                              />
+                              <Input
+                                placeholder="Examination venue"
+                                value={statusForm.examVenue}
+                                onChange={(e) => setStatusForm((prev) => prev ? ({ ...prev, examVenue: e.target.value }) : prev)}
+                              />
                             </div>
                           )}
                           {statusForm?.status === "For Interview" && (
-                            <div className="space-y-2">
-                              <Label>Interview Date</Label>
+                            <div className="space-y-2 rounded-md border p-3 bg-muted/30">
+                              <Label>Interview Schedule</Label>
                               <Input
                                 type="date"
                                 value={statusForm.interviewScheduleDate}
                                 onChange={(e) => setStatusForm((prev) => prev ? ({ ...prev, interviewScheduleDate: e.target.value }) : prev)}
                               />
+                              <Input
+                                type="time"
+                                value={statusForm.interviewScheduleTime}
+                                onChange={(e) => setStatusForm((prev) => prev ? ({ ...prev, interviewScheduleTime: e.target.value }) : prev)}
+                              />
+                              <Input
+                                placeholder="Interview venue"
+                                value={statusForm.interviewVenue}
+                                onChange={(e) => setStatusForm((prev) => prev ? ({ ...prev, interviewVenue: e.target.value }) : prev)}
+                              />
                             </div>
                           )}
                           {statusForm?.status === "For Final Evaluation" && (
-                            <div className="space-y-2">
-                              <Label>Final Evaluation Date</Label>
+                            <div className="space-y-2 rounded-md border p-3 bg-muted/30">
+                              <Label>Final Evaluation Schedule</Label>
                               <Input
                                 type="date"
                                 value={statusForm.finalEvaluationDate}
                                 onChange={(e) => setStatusForm((prev) => prev ? ({ ...prev, finalEvaluationDate: e.target.value }) : prev)}
+                              />
+                              <Input
+                                type="time"
+                                value={statusForm.finalEvaluationTime}
+                                onChange={(e) => setStatusForm((prev) => prev ? ({ ...prev, finalEvaluationTime: e.target.value }) : prev)}
+                              />
+                              <Input
+                                placeholder="Final evaluation venue"
+                                value={statusForm.finalEvaluationVenue}
+                                onChange={(e) => setStatusForm((prev) => prev ? ({ ...prev, finalEvaluationVenue: e.target.value }) : prev)}
                               />
                             </div>
                           )}
@@ -328,16 +357,16 @@ export default function ApplicationTracking() {
                                 toast({ title: "Requirement missing", description: "Document verification must be checked first.", variant: "destructive" });
                                 return;
                               }
-                              if (statusForm.status === "For Examination" && !statusForm.examScheduleDate) {
-                                toast({ title: "Requirement missing", description: "Please set examination date.", variant: "destructive" });
+                              if (statusForm.status === "For Examination" && (!statusForm.examScheduleDate || !statusForm.examScheduleTime || !statusForm.examVenue.trim())) {
+                                toast({ title: "Requirement missing", description: "Please set examination date, time, and venue.", variant: "destructive" });
                                 return;
                               }
-                              if (statusForm.status === "For Interview" && !statusForm.interviewScheduleDate) {
-                                toast({ title: "Requirement missing", description: "Please set interview date.", variant: "destructive" });
+                              if (statusForm.status === "For Interview" && (!statusForm.interviewScheduleDate || !statusForm.interviewScheduleTime || !statusForm.interviewVenue.trim())) {
+                                toast({ title: "Requirement missing", description: "Please set interview date, time, and venue.", variant: "destructive" });
                                 return;
                               }
-                              if (statusForm.status === "For Final Evaluation" && !statusForm.finalEvaluationDate) {
-                                toast({ title: "Requirement missing", description: "Please set final evaluation date.", variant: "destructive" });
+                              if (statusForm.status === "For Final Evaluation" && (!statusForm.finalEvaluationDate || !statusForm.finalEvaluationTime || !statusForm.finalEvaluationVenue.trim())) {
+                                toast({ title: "Requirement missing", description: "Please set final evaluation date, time, and venue.", variant: "destructive" });
                                 return;
                               }
 
@@ -347,9 +376,14 @@ export default function ApplicationTracking() {
                                 remarks: statusForm.remarks,
                                 documentsComplete: statusForm.documentsComplete,
                                 examScheduleDate: statusForm.examScheduleDate || undefined,
+                                examScheduleTime: statusForm.examScheduleTime || undefined,
+                                examVenue: statusForm.examVenue.trim() || undefined,
                                 interviewScheduleDate: statusForm.interviewScheduleDate || undefined,
+                                interviewScheduleTime: statusForm.interviewScheduleTime || undefined,
+                                interviewVenue: statusForm.interviewVenue.trim() || undefined,
                                 finalEvaluationDate: statusForm.finalEvaluationDate || undefined,
-                                allowWorkflowSkip: statusForm.allowWorkflowSkip,
+                                finalEvaluationTime: statusForm.finalEvaluationTime || undefined,
+                                finalEvaluationVenue: statusForm.finalEvaluationVenue.trim() || undefined,
                                 notifyApplicant: statusForm.notifyApplicant,
                                 rejectionSubtype: statusForm.rejectionSubtype
                               });

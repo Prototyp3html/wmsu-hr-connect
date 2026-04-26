@@ -108,8 +108,14 @@ export async function initDb() {
       remarks TEXT,
       documents_complete BOOLEAN NOT NULL DEFAULT FALSE,
       exam_schedule_date TEXT,
+      exam_schedule_time TEXT,
+      exam_venue TEXT,
       interview_schedule_date TEXT,
-      final_evaluation_date TEXT
+      interview_schedule_time TEXT,
+      interview_venue TEXT,
+      final_evaluation_date TEXT,
+      final_evaluation_time TEXT,
+      final_evaluation_venue TEXT
     );
 
     CREATE TABLE IF NOT EXISTS status_history (
@@ -242,8 +248,14 @@ export async function initDb() {
     ALTER TABLE applications
     ADD COLUMN IF NOT EXISTS documents_complete BOOLEAN NOT NULL DEFAULT FALSE,
     ADD COLUMN IF NOT EXISTS exam_schedule_date TEXT,
+    ADD COLUMN IF NOT EXISTS exam_schedule_time TEXT,
+    ADD COLUMN IF NOT EXISTS exam_venue TEXT,
     ADD COLUMN IF NOT EXISTS interview_schedule_date TEXT,
-    ADD COLUMN IF NOT EXISTS final_evaluation_date TEXT;
+    ADD COLUMN IF NOT EXISTS interview_schedule_time TEXT,
+    ADD COLUMN IF NOT EXISTS interview_venue TEXT,
+    ADD COLUMN IF NOT EXISTS final_evaluation_date TEXT,
+    ADD COLUMN IF NOT EXISTS final_evaluation_time TEXT,
+    ADD COLUMN IF NOT EXISTS final_evaluation_venue TEXT;
   `).catch(() => {});
 
   // Add key PDS identity fields for applicants.
