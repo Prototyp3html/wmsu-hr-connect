@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useQuery } from "@tanstack/react-query";
 import { fetchApplicants, fetchApplications, fetchJobs, fetchEvaluations } from "@/lib/api";
@@ -16,6 +17,9 @@ export default function Reports() {
   const [reportType, setReportType] = useState<ReportType>("per-position");
   const [isExporting, setIsExporting] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [hiredPositionFilter, setHiredPositionFilter] = useState("all");
+  const [hiredSalaryGradeFilter, setHiredSalaryGradeFilter] = useState("all");
+  const [hiredPositionLevelFilter, setHiredPositionLevelFilter] = useState("all");
   
   const { data: applications = [] } = useQuery({
     queryKey: ["applications"],
@@ -34,8 +38,58 @@ export default function Reports() {
     queryFn: fetchEvaluations
   });
 
+  const getApplicantName = (id: string) =>
+    applicants.find((a) => a.id === id)?.fullName ?? "Unknown";
+
+  const getVacancyTitle = (id: string) =>
+    jobs.find((v) => v.id === id)?.positionTitle ?? "Unknown";
+
+  const getVacancySalaryGrade = (id: string) =>
+    jobs.find((v) => v.id === id)?.salaryGrade ?? null;
+
+  const getVacancyPositionLevel = (id: string) => {
+    const level = jobs.find((v) => v.id === id)?.positionLevel;
+    if (level === "first_level") return "First Level";
+    if (level === "second_level") return "Second Level";
+    return "Unknown";
+  };
+
   const hired = applications.filter((a) => a.status === "Hired");
   const rejected = applications.filter((a) => a.status === "Rejected");
+
+  const hiredPositionOptions = useMemo(() => {
+    return Array.from(new Set(hired.map((app) => getVacancyTitle(app.vacancyId)).filter((title) => title !== "Unknown"))).sort((a, b) => a.localeCompare(b));
+  }, [hired, jobs]);
+
+  const hiredSalaryGradeOptions = useMemo(() => {
+    return Array.from(new Set(
+      hired
+        .map((app) => getVacancySalaryGrade(app.vacancyId))
+        .filter((grade): grade is number => grade !== null)
+    ))
+      .sort((a, b) => a - b)
+      .map((grade) => String(grade));
+  }, [hired, jobs]);
+
+  const hiredPositionLevelOptions = useMemo(() => {
+    return Array.from(new Set(
+      hired.map((app) => getVacancyPositionLevel(app.vacancyId)).filter((level) => level !== "Unknown")
+    ));
+  }, [hired, jobs]);
+
+  const hiredFiltered = useMemo(() => {
+    return hired.filter((app) => {
+      const position = getVacancyTitle(app.vacancyId);
+      const salaryGrade = getVacancySalaryGrade(app.vacancyId);
+      const positionLevel = getVacancyPositionLevel(app.vacancyId);
+
+      const matchPosition = hiredPositionFilter === "all" || position === hiredPositionFilter;
+      const matchSalaryGrade = hiredSalaryGradeFilter === "all" || String(salaryGrade ?? "") === hiredSalaryGradeFilter;
+      const matchPositionLevel = hiredPositionLevelFilter === "all" || positionLevel === hiredPositionLevelFilter;
+
+      return matchPosition && matchSalaryGrade && matchPositionLevel;
+    });
+  }, [hired, hiredPositionFilter, hiredSalaryGradeFilter, hiredPositionLevelFilter, jobs]);
 
   const positionGroups = jobs.map((v) => ({
     vacancy: v,
@@ -96,12 +150,6 @@ export default function Reports() {
     });
     return Array.from(summaryMap.values());
   }, [applications]);
-
-  const getApplicantName = (id: string) =>
-    applicants.find((a) => a.id === id)?.fullName ?? "Unknown";
-
-  const getVacancyTitle = (id: string) =>
-    jobs.find((v) => v.id === id)?.positionTitle ?? "Unknown";
 
   const handlePrint = () => {
     window.print();
@@ -172,9 +220,10 @@ export default function Reports() {
           csvContent += `"${vacancy.positionTitle}",${apps.length},${hiredCount},${rejectedCount},${inReviewCount}\n`;
         });
       } else if (reportType === "hired") {
-        csvContent += "Applicant Name,Position,Date Applied\n";
-        hired.forEach((app) => {
-          csvContent += `"${getApplicantName(app.applicantId)}","${getVacancyTitle(app.vacancyId)}","${app.dateApplied}"\n`;
+        csvContent += "Applicant Name,Position,Salary Grade,Position Level,Date Applied\n";
+        hiredFiltered.forEach((app) => {
+          const salaryGrade = getVacancySalaryGrade(app.vacancyId);
+          csvContent += `"${getApplicantName(app.applicantId)}","${getVacancyTitle(app.vacancyId)}","${salaryGrade ?? "N/A"}","${getVacancyPositionLevel(app.vacancyId)}","${app.dateApplied}"\n`;
         });
       } else if (reportType === "rejected") {
         csvContent += "Applicant Name,Position,Remarks\n";
@@ -321,50 +370,83 @@ export default function Reports() {
         <TabsContent value="hired" className="mt-4">
           <Card>
             <CardContent className="pt-5">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6 no-print">
+                <Select value={hiredPositionFilter} onValueChange={setHiredPositionFilter}>
+                  <SelectTrigger><SelectValue placeholder="Filter by Position" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Positions</SelectItem>
+                    {hiredPositionOptions.map((title) => (
+                      <SelectItem key={title} value={title}>{title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={hiredSalaryGradeFilter} onValueChange={setHiredSalaryGradeFilter}>
+                  <SelectTrigger><SelectValue placeholder="Filter by Salary Grade" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Salary Grades</SelectItem>
+                    {hiredSalaryGradeOptions.map((grade) => (
+                      <SelectItem key={grade} value={grade}>SG-{grade}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={hiredPositionLevelFilter} onValueChange={setHiredPositionLevelFilter}>
+                  <SelectTrigger><SelectValue placeholder="Filter by Position Level" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Position Levels</SelectItem>
+                    {hiredPositionLevelOptions.map((level) => (
+                      <SelectItem key={level} value={level}>{level}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                 <Card>
                   <CardContent className="pt-4">
-                    <p className="text-sm text-muted-foreground">Total Hired</p>
-                    <p className="text-2xl font-bold text-success">{hired.length}</p>
+                    <p className="text-sm text-muted-foreground">Filtered Hired</p>
+                    <p className="text-2xl font-bold text-success">{hiredFiltered.length}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="pt-4">
                     <p className="text-sm text-muted-foreground">Hiring Rate</p>
-                    <p className="text-2xl font-bold">{applications.length > 0 ? Math.round((hired.length / applications.length) * 100) : 0}%</p>
+                    <p className="text-2xl font-bold">{applications.length > 0 ? Math.round((hiredFiltered.length / applications.length) * 100) : 0}%</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="pt-4">
-                    <p className="text-sm text-muted-foreground">From Applications</p>
-                    <p className="text-2xl font-bold">{applications.length}</p>
+                    <p className="text-sm text-muted-foreground">Matching Filters</p>
+                    <p className="text-2xl font-bold">{hiredFiltered.length}</p>
                   </CardContent>
                 </Card>
               </div>
               <h3 className="font-semibold text-foreground mb-4">Hired Applicants</h3>
               <div className="overflow-x-auto border border-border/50 shadow-sm rounded-lg">
-              <table className="w-full text-sm min-w-[400px]">
+              <table className="w-full text-sm min-w-[700px]">
                 <thead>
                   <tr className="border-b border-border/70 bg-primary text-primary-foreground">
                     <th className="h-12 px-4 py-3 text-left text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Applicant</th>
                     <th className="h-12 px-4 py-3 text-left text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Position</th>
+                    <th className="h-12 px-4 py-3 text-center text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Salary Grade</th>
+                    <th className="h-12 px-4 py-3 text-left text-[11px] font-semibold text-primary-foreground uppercase tracking-wide">Position Level</th>
                     <th className="h-12 px-4 py-3 text-center text-[11px] font-semibold text-primary-foreground uppercase tracking-wide whitespace-nowrap hidden sm:table-cell">Date Applied</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {hired.map((app, idx) => (
+                  {hiredFiltered.map((app, idx) => (
                     <tr key={app.id} className={`border-b border-border/20 h-14 transition-colors ${
                       idx % 2 === 0 ? "bg-background hover:bg-muted/30" : "bg-muted/10 hover:bg-muted/20"
                     }`}>
                       <td className="px-4 py-3 pr-3 font-medium whitespace-nowrap">{getApplicantName(app.applicantId)}</td>
                       <td className="px-4 py-3 pr-3 text-muted-foreground">{getVacancyTitle(app.vacancyId)}</td>
+                      <td className="px-4 py-3 text-center text-muted-foreground whitespace-nowrap">{getVacancySalaryGrade(app.vacancyId) ?? "N/A"}</td>
+                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{getVacancyPositionLevel(app.vacancyId)}</td>
                       <td className="px-4 py-3 text-center text-muted-foreground whitespace-nowrap hidden sm:table-cell">{app.dateApplied}</td>
                     </tr>
                   ))}
-                  {hired.length === 0 && (
+                  {hiredFiltered.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="px-4 py-8 text-center text-sm text-muted-foreground">
-                        No hired applicants found.
+                      <td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                        No hired applicants found for the selected filters.
                       </td>
                     </tr>
                   )}
@@ -595,14 +677,18 @@ export default function Reports() {
                     <tr className="border-b">
                       <th className="pb-2 text-left text-muted-foreground">Applicant</th>
                       <th className="pb-2 text-left text-muted-foreground">Position</th>
+                      <th className="pb-2 text-center text-muted-foreground">Salary Grade</th>
+                      <th className="pb-2 text-left text-muted-foreground">Position Level</th>
                       <th className="pb-2 text-center text-muted-foreground whitespace-nowrap">Date Applied</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {hired.map((app) => (
+                    {hiredFiltered.map((app) => (
                       <tr key={app.id} className="border-b last:border-0">
                         <td className="py-2 pr-3 font-medium whitespace-nowrap">{getApplicantName(app.applicantId)}</td>
                         <td className="py-2 pr-3 text-muted-foreground">{getVacancyTitle(app.vacancyId)}</td>
+                        <td className="py-2 text-center text-muted-foreground whitespace-nowrap">{getVacancySalaryGrade(app.vacancyId) ?? "N/A"}</td>
+                        <td className="py-2 pr-3 text-muted-foreground whitespace-nowrap">{getVacancyPositionLevel(app.vacancyId)}</td>
                         <td className="py-2 text-center text-muted-foreground whitespace-nowrap">{app.dateApplied}</td>
                       </tr>
                     ))}
