@@ -432,13 +432,16 @@ function parseWorkExperience(value: string): WorkExperienceEntry[] {
         isGovtService = ""
       ] = parts;
 
+      const normalizedGovtService: WorkExperienceEntry["isGovtService"] =
+        isGovtService === "Y" || isGovtService === "N" ? isGovtService : "";
+
       return {
         dateFrom,
         dateTo,
         positionTitle,
         departmentAgencyOfficeCompany,
         statusOfAppointment,
-        isGovtService: isGovtService === "Y" || isGovtService === "N" ? isGovtService : ""
+        isGovtService: normalizedGovtService
       };
     });
 
