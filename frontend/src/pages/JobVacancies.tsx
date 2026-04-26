@@ -22,6 +22,8 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
+const ADD_NEW_POSITION_VALUE = "__add_new_position__";
+
 const TEST_SALARY_GRADE_BY_TITLE: Record<string, number> = {
   "instructor iii": 14,
   "information technology officer i repost": 19,
@@ -50,6 +52,11 @@ export default function JobVacancies() {
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showCreateCustomTitle, setShowCreateCustomTitle] = useState(false);
+  const [showEditCustomTitle, setShowEditCustomTitle] = useState(false);
+  const [createCustomTitle, setCreateCustomTitle] = useState("");
+  const [editCustomTitle, setEditCustomTitle] = useState("");
+  const [customPositionTitles, setCustomPositionTitles] = useState<string[]>([]);
   const [formState, setFormState] = useState({
     positionTitle: "",
     departmentId: "",
@@ -87,10 +94,35 @@ export default function JobVacancies() {
   });
 
   const positionTitleOptions = useMemo(() => {
-    return Array.from(new Set([...positionTitles, ...jobVacancies.map((vacancy) => vacancy.positionTitle)]))
+    return Array.from(new Set([
+      ...positionTitles,
+      ...jobVacancies.map((vacancy) => vacancy.positionTitle),
+      ...customPositionTitles,
+      formState.positionTitle,
+      editFormState.positionTitle
+    ]))
       .filter(Boolean)
       .sort((a, b) => a.localeCompare(b));
-  }, [positionTitles, jobVacancies]);
+  }, [positionTitles, jobVacancies, customPositionTitles, formState.positionTitle, editFormState.positionTitle]);
+
+  const registerCustomPositionTitle = (rawTitle: string) => {
+    const title = rawTitle.trim();
+    if (!title) {
+      toast({ title: "Missing title", description: "Please enter a position title first.", variant: "destructive" });
+      return null;
+    }
+
+    const exists = positionTitleOptions.some((existing) => existing.toLowerCase() === title.toLowerCase());
+    if (!exists) {
+      setCustomPositionTitles((prev) => [...prev, title]);
+      toast({ title: "Position title added", description: `${title} is now available in the dropdown.` });
+      return title;
+    }
+
+    const existingTitle = positionTitleOptions.find((existing) => existing.toLowerCase() === title.toLowerCase()) ?? title;
+    toast({ title: "Already exists", description: `${existingTitle} is already in the dropdown.` });
+    return existingTitle;
+  };
 
   const salaryGradeByTitle = useMemo(() => {
     const map = new Map<string, number>(Object.entries(TEST_SALARY_GRADE_BY_TITLE));
@@ -104,6 +136,14 @@ export default function JobVacancies() {
   }, [jobVacancies]);
 
   const applyCreateTitle = (title: string) => {
+    if (title === ADD_NEW_POSITION_VALUE) {
+      setShowCreateCustomTitle(true);
+      return;
+    }
+
+    setShowCreateCustomTitle(false);
+    setCreateCustomTitle("");
+
     const suggested = salaryGradeByTitle.get(title.trim().toLowerCase());
     setFormState((prev) => ({
       ...prev,
@@ -112,13 +152,33 @@ export default function JobVacancies() {
     }));
   };
 
+  const handleAddCreateCustomTitle = () => {
+    const title = registerCustomPositionTitle(createCustomTitle);
+    if (!title) return;
+    applyCreateTitle(title);
+  };
+
   const applyEditTitle = (title: string) => {
+    if (title === ADD_NEW_POSITION_VALUE) {
+      setShowEditCustomTitle(true);
+      return;
+    }
+
+    setShowEditCustomTitle(false);
+    setEditCustomTitle("");
+
     const suggested = salaryGradeByTitle.get(title.trim().toLowerCase());
     setEditFormState((prev) => ({
       ...prev,
       positionTitle: title,
       salaryGrade: suggested ? String(suggested) : prev.salaryGrade
     }));
+  };
+
+  const handleAddEditCustomTitle = () => {
+    const title = registerCustomPositionTitle(editCustomTitle);
+    if (!title) return;
+    applyEditTitle(title);
   };
 
   const createMutation = useMutation({
@@ -212,8 +272,26 @@ export default function JobVacancies() {
                     <SelectTrigger><SelectValue placeholder="Select position title" /></SelectTrigger>
                     <SelectContent>
                       {positionTitleOptions.map((title) => <SelectItem key={title} value={title}>{title}</SelectItem>)}
+                      <SelectItem value={ADD_NEW_POSITION_VALUE}>+ Add new position title</SelectItem>
                     </SelectContent>
                   </Select>
+                  {showCreateCustomTitle && (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        placeholder="Enter new position title"
+                        value={createCustomTitle}
+                        onChange={(e) => setCreateCustomTitle(e.target.value)}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={!createCustomTitle.trim()}
+                        onClick={handleAddCreateCustomTitle}
+                      >
+                        Add
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Department</Label>
@@ -317,8 +395,26 @@ export default function JobVacancies() {
                     <SelectTrigger><SelectValue placeholder="Select position title" /></SelectTrigger>
                     <SelectContent>
                       {positionTitleOptions.map((title) => <SelectItem key={title} value={title}>{title}</SelectItem>)}
+                      <SelectItem value={ADD_NEW_POSITION_VALUE}>+ Add new position title</SelectItem>
                     </SelectContent>
                   </Select>
+                  {showEditCustomTitle && (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        placeholder="Enter new position title"
+                        value={editCustomTitle}
+                        onChange={(e) => setEditCustomTitle(e.target.value)}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={!editCustomTitle.trim()}
+                        onClick={handleAddEditCustomTitle}
+                      >
+                        Add
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Department</Label>
